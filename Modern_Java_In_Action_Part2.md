@@ -160,3 +160,336 @@
 	-	스트림 파이프라인을 실행하고 결과를 만들 최종 연산
 
 ---
+
+#### Chap 5 : 스트림 활용
+
+-	스트림 API가 지원하는 다양한 연산에 대해 살펴본다. (필터링, 슬라이싱, 매핑, 검색, 매칭, 리듀싱 등 다양한 데이터 처리 질의 표현 가능)
+
+##### 5.1 필터링
+
+-	스트림의 요소를 선택하는 방법에 대해 배운다
+
+	-	프레디케이트 필터링 : filter 메서드는 프레디케이트(불리언을 반환하는 함수)를 인수로 받아서 프레디케이트와 일치하는 모든 요소를 포함하는 스트림을 반환한다.
+
+		```java
+		List<Dish> vegetarianMenu = menu.stream()
+		                                .filter(Dish::isVegetarian)
+		                                .collect(toList());
+		```
+
+	-	고유 요소 필터링 : 고유 요소로 이루어진 스트림을 반환하는 distinct 메서드도 지원한다.
+
+		```java
+		List<Integer> numbers = Arrays.asList(1,2,1,3,3,2,4);
+
+
+		numbers.steam()
+		                .filter(i -> i % == 0)
+		                .distinct()
+		                .forEach(System.out::println);
+		```
+
+##### 5.2 스트림 슬라이싱
+
+-	스트림의 요소를 선택하거나 스킵하는 다양한 방법에 대해 살펴본다.
+
+-	프레디케이트를 이용한 슬라이싱 : 자바 9는 스트림의 요소를 효과적으로 선택할 수 있도록 takeWhile, dropWhile 두 가지 새로운 메서드를 지원한다.
+
+	-	takeWhile : filter연산은 전체 스트림을 반복하면서 각 요소에 프레디케이트를 적용하지만, 이미 정렬된 상태의 리스트라면 비효율적일 수 있다. takeWhile을 이용하면 무한 스트림을 포함한 모든 스트림에 프레디케이트를 적용해 스트림을 슬라이스할 수 있다.
+
+		```java
+		List<Dish> slicedMenu1 = specialMenu.stream()
+		                                    .takeWhile(dish -> dish.getCalories() < 320)
+		                                    .collect(toList());
+		```
+
+	-	dropWhile : takeWhile과 정반대 작업이다. 남은 요소!
+
+		```java
+		List<Dish> slicedMenu2 = specialMenu.stream()
+		                                     .dropWhile(dish -> dish.getCalories() < 320)
+		                                     .collect(toList());
+		```
+
+-	스트림 축소
+
+	-	스트림은 주어진 값 이하의 크기를 갖는 새로운 스트림을 반환하는 limit(n) 메서드를 지원한다.
+
+		```java
+		List<Dish> dishes = sepcialMenu.stream()
+		                                .filter(dish -> dish.getCalories() > 300)
+		                                .limit(3)
+		                                .collect(toList());
+		```
+
+-	요소 건너뛰기
+
+	-	스트림은 처음 n개 요소를 제외한 스트림을 반환하는 skip(n) 메서드를 지원한다. (n개 이하의 스트림에 skip(n)을 호출하면 빈 스트림이 반환된다.)
+
+	```java
+	List<Dish> dishes = sepcialMenu.stream()
+	                               .filter(dish -> dish.getCalories() > 300)
+	                               .skip(3)
+	                               .collect(toList());
+	```
+
+##### 5.3 매핑
+
+-	스트림 API의 map과 flatMap 메서드는 특정 데이터를 선택하는 기능을 제공한다.
+
+-	함수를 인수로 받는 map 메서드 : 인수로 제공된 함수는 각 요소에 적용되며 함수를 적용한 결과가 새로운 요소로 매핑된다.
+
+```java
+List<Dish> dishes = menu.stream()
+												.map(Dish::getName)
+												.collect(toList());
+
+// map을 연결할 수도 있음
+List<Dish> dishes = menu.stream()
+												.map(Dish::getName)
+												.map(String::length)
+												.collect(toList());
+
+```
+
+-	flatMap : 각 배열을 스트림이 아니라 스트림의 콘텐츠로 매핑한다. 즉 map (Arrays::stream)과 달리 하나의 평면화된 스트림을 번환한다. (스트림의 각 값을 다른 스트림으로 만든 다음에 모든 스트림을 하나의 스트림으로 연결)
+
+-	퀴즈 5.2 : 두 개의 숫자 리스트가 있을 때 모든 숫자 쌍의 리스트를 반환하시오. 예를 들어 두 개의 리스트 [1,2,3]과 [3,4]가 주어지먄 [(1,3),(1,4),(2,3),(3,3),(3,4)] 를 반환해야함.
+
+```java
+List<Integer> number1 = Arrays.asList(1,2,3);
+List<Integer> number2 = Arrays.asList(3,4);
+
+List<int[]> pairs = number1.stream().flatMap(i -> number2.stream().map(j -> new int[]{i,j})).collect(toList());
+```
+
+##### 5.4 검색과 매칭
+
+-	스트림 API는 특성속성이나 데이터 집합에 있는지 여부를 검색하는 데이터처리의 allMatch, anyMatch, nonMatch, findFirst, findAny 등 다양한 메서드를 제공한다.
+
+-	요소 검사
+
+	-	스트림 쇼트기법 즉, 자바의 &&, || 와 같은 연산을 활용한다.
+
+		-	전체 스트림을 처리하지 않았더라도 결과를 반환할 수 있다. (표현식에서 하나라도 거짓이라는 결과가 나오면 나머지 표현식 결과아 상관없이 전체 결과도 거짓이 된다.)
+		-	원하는 요소를 찾았으면 즉시 결과를 반환할 수 있다. (limit도 쇼트서킷 연산)
+
+```java
+// 적어도 한 요소와 일치하는지 확인
+if(menu.stream().anyMatch(Dish::isVegetarian)){
+	System.out.println("적어도 한 요소와 일치")
+}
+
+// 모든 요소와 주어진 프레디케이트와 일치하는지 확인
+boolean isHealthy = menu.stream().allMatch(dish -> dish.getCalories() < 1000);
+
+// 주어진 프레디케이트와 일치하는 요소가 없는지 확인
+boolean isHealty = menu.stream.noneMatch(d -> d.getCalories() >= 1000);
+```
+
+-	요소 검색
+
+```java
+// 현재 스트림에서 임의의 요소를 반환한다. (다음의 filter와 같이 다른 스트림과 연결해서 사용가능)
+Optional<Dish> dish = menu.stream().filter(Dish::isVegetarian).findAny();
+
+// 첫 번째 요소 찾기
+List<Integer> someNumbers = Arrays.asList(1,2,3,4,5);
+Optional<Integer> firstSquareDivisibleByTree = someNumber.stream()
+																													.map(n -> n*n)
+																													.filter(n -> n % 3 == 0)
+																													.findFirst();
+```
+
+##### 5.5 리듀싱
+
+-	리듀싱 : 모든 스트림 요소를 처리해서 값으로 도출하는 연산
+
+```java
+// for-each 루프
+int sum = 0;
+for(int x : numbers){
+	sum += x;
+}
+
+// 리듀싱 사용
+int sum = numbers.stream().reduce(0, (a, b) -> a + b);
+
+// 메서드 참조
+int sum = numbers.stream().reduce(0, Integer::sum);
+
+// 초기 값이 없는 reduce (스트림에 아무 요소도 없는 상황일 때 초기값이 없으므로 Optional 처리)
+Optional<Integer> sum = numbers.stream().reduce((a,b) -> (a+b));
+
+// 최대값
+Optional<Integer> max = numbers.stream().reduce(Integer::max);
+
+// 최솟값  ( (x,y) -> x<y ? x:y 를 사용해도 가능)
+Optional<Integer> min = numbers.stream().reduce(Integer::min);
+
+```
+
+-	reduce 메서드의 장점
+
+	-	reduce를 사용하면 내부 반복이 추상화되면서 내부 구현에서 병렬도 reduce를 실행할 수 있게 됨
+	-	하지만 병렬로 실행 시 reduce에 넘겨준 람다의 상태가 바뀌지 말아야하며, 연산이 어떤 순서로 실행되더라도 결과가 바뀌지 않는 구조여야한다.
+
+-	중간연산과 최종연산 정리표 176p 참조
+
+##### 5.6 실전 연습
+
+-	스트림을 사용하여 거래를 실행하는 거래자 문제를 풀어본다.
+
+	1.	2011년에 일어난 모든 트랜잭션을 찾아 값을 오름차순으로 정리하시오 .
+	2.	거래자가 근무하는 모든 도시를 중복 없이 나열하시오.
+	3.	케임브리지에 근무하는 모든 거래를 찾아서 이름순으로 정렬하시오.
+	4.	모든 거래자의 이름을 알파벳순으로 정렬해서 반환하시오.
+	5.	밀라노에 거래자가 있는가?
+	6.	케임브리지에 거주하는 거래자의 모든 트랜잭션 값을 출력하시오.
+	7.	전체 트랜잭션 중 최댓값은 얼마인가?
+	8.	전체 트랜잭션 중 최솟값은 얼마인가?
+
+	```java
+	// 1.
+	    List<Transaction> List2011 = transactions.stream()
+	                                                .filter(transaction -> transaction.getYear() == 2011)
+	                                                .sorted(comparing(Transaction::getYear))
+	                                                .collect(toList());
+
+
+	    // 2.
+	    List<String> allCitys = transactions.stream()
+	            .map(Transaction::getTrader)
+	            .map(Trader::getCity)
+	            .distinct().collect(toList());
+
+
+	    // 3.
+	    List<Trader> CambridgeTraders = transactions.stream()
+	            .map(Transaction::getTrader)
+	            .filter(trader -> trader.getCity().equals("Cambridge"))
+	            .distinct()
+	            .sorted(comparing(Trader::getName))
+	            .collect(toList());
+
+
+	    // 4.
+	    String allTraderName = transactions.stream()
+	            .map(transaction -> transaction.getTrader().getName())
+	            .distinct()
+	            .sorted()
+	            .reduce("", (n1,n2) -> n1 + n2)
+	           ;
+
+
+	    // 5.
+	    boolean isPresentTraderInMilan = transactions.stream()
+	            .anyMatch(transaction -> transaction.getTrader().getCity().equals("Milan"))
+	            ;
+
+
+	    // 6.
+	    List<Transaction> allTransactionInCam = transactions.stream()
+	            .filter(transaction -> transaction.getTrader().getCity().equals("Cambridge"))
+	            .collect(toList());
+
+
+	    // 7.
+	    Optional<Integer> max = transactions.stream()
+	            .map(Transaction::getValue)
+	            .reduce(Integer::max);
+
+
+	    // 7.
+	    Optional<Integer> min = transactions.stream()
+	            .map(Transaction::getValue)
+	            .reduce(Integer::min);
+	```
+
+##### 5.7 숫자형 스트림
+
+-	reduce 메서드로 스트림요소의 합을 구할 수 있는데, 박싱비용이 발생할 수 있다.
+
+```java
+// 내부적으로 합계를 계산하기전에 Integer를 기본형으로 박싱해야함.
+int calories = menu.stream().map(Dish::getCalories).reduce(0, Integer::sum);
+```
+
+-	스트림은 API숫자 스트림을 효율적으로 처리할 수 있도록 기본형 특화 스트림을 제공한다.
+-	각 인터페이스는 숫자 스트림의 합계를 계산하는 sum, 최댓값 요소를 검색하는 max 등의 연산 메서드를 제공한다.
+
+	-	IntStream (mapToInt)
+	-	DoubleStream (mapToDouble)
+	-	LongStream (mapToLong)
+
+	```java
+	// 기본형 특화 스트림
+	int caloreis = menu.stream()
+	.mapToInt(Dish:getCalories) // Stream<T> 대신 IntStream을 반환한다.
+	.sum();
+
+
+	// 객체 스트림으로 복원
+	IntStream intStream = menu.stream().mapToInt(Dish:getCalories);
+	Stream<Integer> stream = intStream.boxed();
+
+
+	// Optional 의 기본형 특화 스트림 버전
+	OptionalInt maxCalories = menu.stream().mapToInt(Dish::getCalories).max();
+	// 값이 없을 때 기본 최댓값을 명시적으로 설정
+	int max = maxCalories.orElse(1);
+
+
+	// 특정 범위 메서드 (IntStream과 LongStream은 range, rangeClose 제공   )
+	// range : 시작값과 종료값이 결과에 포함되지 않음
+	// rangeClosed : 시작값과 종료값이 결과에 포함됨
+	IntStream evenNumbers = IntStream.rangeClosed(1,100).filter(n -> n % 2 == 0);
+	```
+
+##### 5.8 스트림 만들기
+
+-	다양한 방식으로 스트림을 만들 수 있다.
+
+```java
+// 값으로 스트림 만들기
+Stream<String> stream = Stream.of("Modern", "Java", "In", "Action");
+
+// null이 될 수 있는 객체로 스트림 만들기
+Stream<String> homeValueSteam = Stream.ofNullable(System.getProperty("home"));
+
+// 배열로 스트림 만들기
+int[] numbers = {2,3,5,7,11,13};
+int sum = Arrays.steam(numbers).sum();
+
+// 파일로 스트림 만들기
+long uniqueWords = 0;
+try(Stream<String> lines = Files.lines(Paths.get("data.txt"), Charset.defaultCharset())) {
+	uniqueWords = lines.flatMap(line -> Arrays.stream(line.split(" "))).distinct().count();
+}
+
+// 함수로 무한 스트림 만들기
+// iterate : 초깃값과 람다를 인수로 받아 새로운 값을 끊임없이 생산할 수 있음
+Stream.iterate(0, n -> n+2).limit(10).forEach(System.out::println);
+
+// 자바 9에서는 두번 째 인수로 프레디케이트를 받아 언제까지 작업을 수행할지를 정할 수 있음
+IntStream.iterate(0, n -> n < 100, n -> n+4).forEach(System.out::println);
+
+// generate : Supplier<T>를 인수로 받아 새로운 값 생성 (IntStream을 통해 박싱연산 문제도 해결 가능 IntStream.generate( )
+Stream.generate(Math::random).limit(5).forEach(System.out::println);
+
+IntSupplier fib = new IntSupplier(){
+	private int previous = 0;
+	private int current = 1;
+	public int getAsInt(){
+		int oldPrevious = this.previous;
+		int nextValue = this.previous + this.current;
+		this.previous = this.current;
+		this.current = nextValue;
+		return oldPrevious;
+	}
+};
+IntStream.generate(fib).limit(10).forEach(System.out::println);
+
+```
+
+---
