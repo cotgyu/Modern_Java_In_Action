@@ -493,3 +493,253 @@ IntStream.generate(fib).limit(10).forEach(System.out::println);
 ```
 
 ---
+
+#### Chap 6 스트림으로 데이터 수집
+
+-	이 장에서는 reduce가 그랬던 것 처럼 collect 역시 다양한 요소 누적방식을 인수로 받아서 스트림을 최종 결과로 도출하는 리듀싱 연산을 수행할 수 있음을 설명한다.
+
+-	Stream에 toList를 사용하는 대신 더 범용적인 컬렉션 파라미터를 collect 메서드에 전달함으로써 원하는 연산을 간결하게 구현할 수 있음을 배우게 된다.
+
+##### 6.1 컬렉터란 무엇인가?
+
+-	Collector 인터페이스 구현은 스트림 요소를 어떤 식으로 도출할지 지정한다.
+
+-	collect로 결과를 수집하는 과정을 간단하면서도 유연한 방식으로 정의할 수 있다는 점이 컬렉터의 최대 강점이다.
+
+-	Collectors 클래스에서 제공하는 팩토리메서드 기능을 설명한다. (groupingBy 등 )
+
+	-	스트림 요소를 하나의 값으로 리듀스하고 요약
+	-	요소 그룹화
+	-	요소 분할
+
+##### 6.2 리듀싱과 요약
+
+-	컬렉터로 스트림의 모든 항목을 하나의 결과로 합칠 수 있다. (트리를 구성하는 다수준 맵, 메뉴의 칼로리 합계를 가리키는 단순한 정수 등)
+
+```java
+// 카운팅
+long howManyDishes = menu.stream().collect(Collectors.counting());
+// 위와 같다
+long howManyDishes = menu.stream().count();
+
+// 최댓값 최솟값
+Comparator<Dish> dishCaloriesComparator = Comparator.comparingInt(Dish::getCalories);
+
+Optional<Dish> mostCalorieDish = menu.stream().collect(maxBy(dishCaloriesComparator));
+
+
+```
+
+-	요약 연산 : 스트림에 있는 객체의 숫자 필드의 합계나 평균 등을 반환하는 연산
+
+```java
+// 메뉴의 총 칼로리 계산
+int totalCalories = menu.stream().collect(summingInt(Dish::getCalories));
+
+// 평균
+double avgCalories = menu.stream().collect(averageInt(Dish::getCalories));
+
+// 종합 정보
+// IntSummaryStatistics{count=9, sum=4300, min=120, average=477.77788, max=800}
+
+IntSummaryStatistics menuStatistics = menu.stream().collect(summarizingInt(Dish::getCalories));
+```
+
+-	문자열 연결 : joining 팩토리 메서드를 통해 문자열을 하나의 연결해서 반환할 수 있다.
+
+```java
+String shortMenu = menu.stream().map(Dish::getName).collect(joining());
+
+// 구분자를 넣을 수있게 오버로드된 joining 메서드도 있음
+String shortMenu = menu.stream().map(Dish::getName).collect(joining(","));
+
+```
+
+-	범용 리듀싱 요약 연산
+
+	-	지금까지나온 collect 는 reducing 으로 구현할 수 있다.
+
+	```java
+	int totalCalories = menu.stream().collect(reducing(0, Dish::getCalories, (i,j) -> i + j));
+	```
+
+-	collect와 reduce
+
+	-	collect 메서드는 도출하려는 결과를 누적하는 컨테이너를 바꾸도록 설계된 메서드인 반면, reduce는 두 값을 하나로 도출하는 불변형 연산이이다.
+
+	-	reduce를 잘못 사용하면 실용성 문제가 발생할 수 있다. (여러 스레드가 동시에 같은 데이터 구조체를 고치면 리스트 자체가 망가져 리듀싱 연산을 병렬로 수행할 수 없다.)
+
+	-	가변 컨테이너 관련 작업이면서 병렬성을 확보하려면 collect 메서드로 리듀싱 연산을 구현하는 것이 바람직하다.
+
+##### 6.3 그룹화
+
+-	데이터 집합을 하나 이상의 특성으로 분류해서 그룹화하는 연산도 데이터베이스에서 많이 수행하는 작업이다.
+
+	-	자바8의 함수형을 이용하면 가독성 있는 한 줄의 코드로 그룹화를 구현할 수 있다.
+
+-	그룹화된 요소 조작
+
+	-	요소를 그룹화 한 다음에는 각 결과 그룹의 요소를 조작하는 연산이 필요하다
+
+	```java
+	Map<Dish.Type, List<Dish>> caloricDishesByType = menu.stream().collect(groupingBy(Dish::getType, filtering(dish -> dish.getCalories() > 500, toList())));
+
+
+	```
+
+-	다수준 그룹화
+
+	-	두 인수를 받는 팩토리 메서드 Collectors.groupingBy 를 이용해서 항목을 다수준으로 그룹화할 수 있다.
+
+	```java
+	Map<Dish.Type, Map<CaloricLevel, List<Dish>>> dishesByTypeCaloricLevel = menu.stream().collect(
+	    groupingBy(Dish::getType,
+	        groupingBy(dish -> {
+	            if(dish.getCalories() <= 400){
+	                return CaloricLevel.DIET;
+	            }
+	            else if(dish.getCalories() <= 700){
+	                return CaloricLevel.NOMAL;
+	            }
+	            else{
+	                return CaloricLevel.FAT;
+	            }
+	            }
+	        )
+	    ));
+	```
+
+-	서브그룹으로 데이터 수집
+
+	-	다수준 그룹화에서 두 번째 groupingBy 컬렉터를 외부 컬렉터로 전달해서 다수준 그룹화 연산을 구현했다. 이 때 넘겨주는 컬렉터의 형식의 제한은 없다.
+
+	```java
+	Map<Dish.Type, Long> typesCount =  menu.stream().collect(groupingBy(Dish::getType, counting()));
+	```
+
+-	컬렉터 결과를 다른 형식에 적용하기
+
+	-	맵의 모든 값을 Optional로 감쌀 필요가 없을 수 있다.
+
+	> Collectors.collectingAndThen으로 컬렉터가 반환한 결과를 다른 형식으로 활용할 수 있다.
+
+	```java
+	Map<Dish.Type, Dish> mostCaloricByType = menu.stream()
+	.collect(groupingBy(Dish::getType, collectingAndThen(maxBy(comparingInt(Dish::getCalories)), Optional::get)));
+	```
+
+-	groupingBy 활용 예제
+
+	```java
+	Map<Dish.Type, Integer> totalCaloriesByType = menu.stream().collect(groupingBy(Dish::getType, summingInt(Dish::getCalories)));
+
+
+	Map<Dish.Type, Set<CaloricLevel>> caloricLevelsByType = menu.stream().collect(
+	    groupingBy(Dish::getType, mapping(dish -> {
+	        if(dish.getCalories() <= 400) return CaloricLevel.DIET;
+	        else if (dish.getCalories() <= 700) return CaloricLevel.NORMAL;
+	        else return CaloricLevel.FAT;
+	    }, toSet() ))
+	);
+	```
+
+##### 6.4 분할
+
+-	분할 함수는 불리언을 반환하므로 맵의 키 형식은 Boolean 이다. 결과적으로 최대 두 개의 그룹으로 분류된다.
+
+```java
+
+Map<Boolean, List<Dish>> partitionedMenu = menu.stream().collect(partitioningBy(Dish::isVegetrian));
+
+/* 결과는
+{false=[pork, beef, chicken],
+true=[rice, season fruit]} 의 맵이 반환된다.
+*/
+
+// 채식 요리 얻기
+List<Dish> vegetarianDishes = partitionedMenu.get(true);
+```
+
+-	분할 함수가 반환하는 참, 거짓 두 가지 요소의 스트림 리스트를 모두 유지한다는 것이 분할의 장점이다.
+
+	-	컬렉터를 두번째 인수로 전달도 가능하다
+
+	```java
+	Map<Boolean, Dish> mostCaloricPartitionedByVegetarian = menu.stream().collect(partitioningBy(Dish::isVegetarian, collectingAndThen(maxBy)comparingInt(Dish::getCalories)),Optional::get)));
+	```
+
+-	223p Collectors 클래스의 정적 팩토리 메서드 표
+
+##### 6.5 Collector 인터페이스
+
+-	Collector 인터페이스는 리듀싱 연산(즉, 컬렉터)을 어떻게 구현할지 제공하는 메서드 집합으로 구성된다.
+
+	-	직접 Collector 인터페이스를 구현하는 리듀싱 연산을 만들 수 있다. (직접 구현하여 더 효율적으로 문제를 해결하는 컬렉터를 만드는 방법을 살펴본다.)
+
+```java
+public interface Collector<T, A, R> {
+	Supplier<A> supplier();
+	BiConsumer<A, T> accumulator();
+	Function<A, R> finisher();
+	BinaryOperator<A> combiner();
+	Set<Characteristics> characteristics();
+}
+
+/**
+T : 수집될 스트림 항목의 제네릭 형식
+A : 누적자, 즉 수집과정에서 중간 결과를 누적하는 객체의 형식
+R : 수집 연산 결과 객체의 형식
+**/
+```
+
+-	Collector 인터페이스의 메서드
+
+	-	Supplier : 새로운 결과 컨테이너 만들기
+
+		-	supplier는 수집과정에서 빈 누적자 인스턴스를 만드는 파리미터가 없는 함수다.
+
+	-	accumulator : 결과 컨테이너에 요소 추가하기
+
+		-	accumulator 메서드는 리듀싱 연산을 수행하는 함수를 반환한다.
+
+	-	finisher : 최종 변환 값을 결과 컨테이너로 적용하기
+
+		-	finisher 메서드는 스트림 탐색을 끝내고 누적자 객체를 최종 객체로 변호나하면서 누적과정을 끝낼 때 호출할 함수를 반환해야한다.
+
+	-	combiner : 두 결과 컨테이너 병합
+
+		-	리듀싱 연산에서 사용할 함수를 반환
+		-	combiner는 스트림의 서로 다른 서브파트를 병렬로 처리할 때 누적자가 이 결과를 어떻게 처리할 지 정의.
+
+	-	Characteristics
+
+		-	컬렉터의 연산을 정의하는 Characteristics 형식의 불변 집합을 반환
+		-	Characteristics는 스트림을 병렬로 리듀스할 것인지 그리고 병렬로 리듀스한다면 어떤 최적화를 선택해야 할지 힌트 제공
+		-	Characteristics는 열거형임
+			-	UNORERED : 리듀싱 결과는 스트림 요소의 방문 순서나 누적 순서에 영향을 받지 않는다.
+			-	CONCURRENT : 다중 스레드에서 accumulator 함수를 동시에 호출할 수 있으며 스트림의 병렬 리듀싱을 수행할 수 있다. 데이터소스가 정렬되어 있지 않은 상황에서만 병렬 리듀싱 수행 가능
+			-	IDENTITY_FINISH : finisher 메서드가 반환하는 함수는 단순히 identity를 적용할 뿐이므로 이를 생략할 수 있다. 따라서 리듀싱 과정의 최종 결과로 누적자 객체를 바로 사용할 수 있다. (누적자 A를 결과 R로 안전하게 형변환할 수 있음)
+
+-	컬렉터 구현하지 않고 커스텀 수집 수행하기
+
+	-	Stream은 세 함수(발행, 누적, 합침)를 인수로 받는 collect 메서드를 오버로드하여 각각의 메서드는 Collector 인터페이스의 메서드가 반환하는 함수와 같은 기능을 수행한다.  
+
+	```java
+	List<Dish> dishes = menuStream.collect(
+	    ArrayList::new,
+	    List::add,
+	    List::addAll
+	);
+	```
+
+-	책에서는 소수와 비소수 분류 예제를 커스텀 컬렉터를 구현하여 성능 개선하는 작업을 보여줬다.
+
+##### 6.7 마치며
+
+-	collect는 스트림의 요소를 요약 결과로 누적하는 다양한 방법(컬렉터)을 인수로 갖는 최종 연산이다.
+
+-	컬렉터는 다수준의 그룹화, 분할, 리듀싱 연산에 적합하게 설계되었다.
+
+-	Collector 인터페이스에 정의된 메서드를 구현해서 커스텀 컬렉터를 개발할 수 있다.
+
+---
