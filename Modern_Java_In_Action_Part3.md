@@ -710,6 +710,412 @@ Optional<Integer> maxValue = Optional.ofNullalbe(map.reduceValues(parallelismThr
 	.limit(3)
 	.peek(x -> System.out.println("after limit: " + x))
 	.collect(toList());
+	```
+
+---
+
+#### Chap 10 : 람다를 이용한 도메인 전용 언어
+
+-	애플리케이션의 핵심 비지니스를 모델링하는 소프트웨어 영역에서 읽기 쉽고, 이해하기 쉬운 코드는 특히 중요하다.
+
+-	도메인 전용 언어(DSL)로 애플리케이션의 비즈니스 로직을 표현함으로써 이 문제를 해결할 수 있다.
+
+-	10장에서는 예제를 통해 DSL이 무엇인지 배운다.
+
+##### 10.1 도메인 전용 언어
+
+-	DSL이란 특정 비즈니스 도메인을 인터페이스로 만든 API라고 생각할 수 있다.
+
+-	DSL은 두 가지 필요성을 생각하면서 개발해야한다.
+
+	-	의사 소통의 왕 : 코드의 의도가 명확히 전달되어야 하며 프로그래머가 아닌 사람도 이해할 수 있어야 한다.
+	-	한번 코드를 구현하지만 여러 번 읽는다 : 가독성은 유지보수의 핵심이다. 항상 동료가 쉽게 이해할 수 있도록 코드를 구현해야 한다.
+
+-	DSL의 장점과 단점
+
+	-	장점
+
+		-	간결함 : API는 비즈니스 로직을 간단한게 캡슐화하므로 반복을 피할 수 있고 코드를 간결하게 만들 수 있다.
+		-	가독성 : 도메인 영역의 용어를 사용하므로 비 도메인 전문가도 코드를 쉽게 이해할 수 있다.
+		-	유지보수 : 잘 설계된 DSL로 구현한 코드는 쉽게 유지보수하고 바꿀 수 있다.
+		-	높은 수준의 추상화 : DSL은 도메인과 같은 추상화 수준에서 동작하므로 도메인의 문제와 직접적으로 관련되지 않은 세부사항을 숨긴다.
+		-	집중 : 비즈니스 도메인의 규칙을 표현할 목적으로 설계된 언어이므로 프로그ㅐㄹ머가 특정 코드에 집중할 수 있다. (생산성 향상)
+		-	관심사 분리 : 지정된 언어로 비즈니스 언어를 표현함으로 애플리케이션의 인프라구조와 관련된 문제로 독립적으로 비즈니스 관련된 코드에서 집중하기가 용이하다. (유지보수 향상)
+
+	-	단점
+
+		-	DSL 설계의 어려움 : 간결하게 제한적인 언어에 도메인 지식을 담는 것이 쉬운 작업은 아니다.
+		-	개발 비용 : 코드에 DSL을 추가하는 작업은 초기 프로젝트에 많은 비용과 시간이 소모되는 작업이다. 또한 DSL 유지보수와 변경은 프로젝트에 부담을 주는 요소임
+		-	추가 우회 계층 : DSL은 추가적은 계층으로 도메인 모델을 감싸며 이 때 계층을 최대한 작게 만들어 성능 문제를 회피한다.
+		-	새로 배워야하는 언어 : 여러 비즈니스 도메인을 다루는 개별 DSL을 사용하는 상황이라면 이들을 유기적으로 동작하도록 합치는 것은 쉬운 일이 이다. (개별 DSL이 독립적으로 진화할 수 있음)
+		-	호스팅 언어 한계 : 자바 같은 범용 프로그래밍 언어는 장황하고 엄격한 문법을 가졌다. 이런 언어로는 사용자 친화적 DSL을 만들기 힘들다. (자바 8의 람다 표현식은 이 문제를 해결할 강력한 새 도구다. )
+
+-	JVM에서 이용할 수 있는 다른 DSL 해결책
+
+	-	자바가 아닌 다른 언어로 DSL을 구현하는 방법도 있다.
+
+	-	내부 DSL, 외부 DSL, 다중 DSL 으로 나눌 수 있다.
+
+	-	내부 DSL : 자바로 구현한 DSL. (람다를 활용하면 익명 내부 클래스를 사용해 DSL을 구현하는 것 보다 장황함을 크게 줄여 신호 대비 잡음 비율을 적정 수준으루 유지하는 DSL을 만들 수 있다.)
+
+		-	자바로 DSL을 구현함으로 얻는 장점
+			-	외부 DSL에 비해 새로운 패턴과 기술을 배워 DSL을 구현하는 노력이 줄어든다.
+			-	다른 언어의 컴파일러를 이용하거나 외부 DSL을 만드는 도구를 사용할 필요가 없다.
+			-	기존의 자바 IDE를 이용해 자동완성, 자동 리팩터링 같은 기능을 그대로 사용할 수 있다.
+			-	한 개의 언어로 한 개의 도메인 또는 여러 도메안을 대응하지 못해 추가로 DSL을 개발해야 하는 상황에서 자바를 이용한다면 추가 DSL을 쉽게 합칠 수 있다.
+
+	-	다중 DSL : 같은 자바 바이트코드를 사용하는 JVM 기반 프로그래밍 언어를 이용함으로 DSL 합침문제를 해결하는 방법 (스칼라, 루비, 코틀린 등)
+
+		-	DSL은 기반 프로그래밍 언어의 영향을 받으므로 간별한 DSL을 만드는 데 새로운 언어의 특성들은 아주 중요하다.
+		-	위의 예시의 언어들은 모두 자바보다 젊으며 제약을 줄이고, 간편한 문법을 지향하도록 설계되었다.
+
+		-	불편함
+
+			-	새로운 언어를 배우거나 팀의 누군가가 해당 기술을 가지고 있어야한다.
+			-	두 개 이상의 언어가 혼재하므로 여러 컴파일러로 소스를 빌드하도록 빌드 과정을 개선해야 한다.
+			-	JVM에서 실행되는 언어가 자바와 호환성이 완벽하지 않을 때가 있다. (ex_ 스칼라와 자바 컬렉션은 서로 호환되지 않으므로 상호 컬렉션을 전달하려면 기존 컬렉션을 대상 언어의 API에 맞게 변환해야 한다.)
+
+	-	외부 DSL : 독립적으로 자체 문법을 가지는 언어 사용하는 방법
+
+		-	장점
+
+			-	외부 DSL이 제공하는 무한한 유연성 (우리에게 필요한 특성을 완벽하게 제공하는 언어를 설계할 수 있다.)
+			-	자바로 개발된 인프라구조 코드와 외부 DSL로 구현한 비즈니스 코드를 명확하게 분리할 수 있다. (하지만 이 분리로 인해 DSL과 호스팅 언어 사이에 인공계층이 생기므로 이는 양날의 검이다.)
+
+##### 10.2 최신 자바 API의 작은 DSL
+
+-	자바 8 이전의 네이티브 자바 API는 한개의 추상메서드를 가진 인터페이스를 갖고 있다.
+
+	-	무명 내부 클래스를 구현하려면 불필요한 코드가 추가되어야 한다.
+
+-	람다와 메서드 참조가 등장하면서 위의 규칙을 바꿀 수 있게 되었다.
+
+	-	자바 8의 Comparator 인터페이스 예를 통해 람다가 어떻게 네이티브 자바 API의 재사용과 결합도를 높였는지 확인하자. (람다와 메서드 참조를 이용한 DSL이 코드의 가독성, 재사용성, 결합성을 높일 수 있는 지 보여준다. )
+
+	```java
+	// 람다가 없는 경우
+	Collections.sort(persons, new Comparator<Person>(){
+	    public int compare(Person p1, Person p2){
+	        return p1.getAge() - p2.getAge();
+	    }
+	});
+
+
+	// 람다 사용
+	Collections.sort(people, (p1, p2) -> p1.getAge() - p2.getAge());
+
+
+	// 정적메서드 사용
+	Collections.sort(perons, comparing(p -> p.getAge()));
+
+
+	// 메서드 참조
+	Collections.sort(perons, comparing(Person::getAge));
+
+
+	// List에 추가된 새 sort 메서드 사용
+	persons.sort(comparing(Person::getAge).thenComparing(Person::getName));
+	```
+
+-	스트림 인터페이스는 네이티브 자바 API에 작은 DSL을 적용한 좋은 예다.
+
+	-	스트림은 컬렉션의 항목을 필터, 정렬, 변환, 그룹화, 조작하는 작지만 강력한 DSL로 볼 수 있다.
+
+	-	스트림 API의 플루언트 형식은 잘 설계된 DSL의 또 다른 특징이다.
+
+		-	모든 중간 연산은 게으르며 다른 연산으로 파이프라인될 수 있는 스트림으로 반환된다.
+
+	```java
+	// 로그파일에서 에러행을 읽는 예제
+	List<String> errors = new ArrayList<>();
+	int errorCount = 0;
+	BufferedReader bufferedReader = new BufferedReader(new FileReader(fileName));
+
+
+	String line = bufferedReader.readLine();
+	while(errorCount < 40 && line != null){
+	    if(line.startsWith("ERROR")){
+	        errors.add(line);
+	        errorCount++;
+	    }
+	    line = bufferedReader.readLine();
+	}
+
+
+	// 함수형으로 에러행을 읽는 예제
+	List<String> errors2 = Files.lines(Paths.get(fileName))
+	.filter(line -> line.startsWith("ERROR"))
+	.limit(40)
+	.collect(toList());
+	```
+
+-	Collector 인터페이스는 데이터 수집을 수행하는 DSL로 간주할 수 있다. (Stream은 데이터 리스트를 조작하는 DSL)
+
+	-	Collector 인터페이스는 다중 필드 정렬을 지원하도록 합쳐질 수 있으며 Collectors는 다중 수준 그릅화를 달성할 수 있도록 합쳐질 수 있다.
+
+	```java
+	Comparator<? super Car, ? , Map<Brand, Map<Color, List<Car>>>> CarGroupingCollector = groupingBy(Cat::getBrand, groupingBy(Car::getColor));
+
+
+	// groupingBy 팩터리 메서드에 작업을 위임하는 GroupingBuilder를 만들어서 해결할 수도 있다.
+	public class GroupingBuilder<T, D, K> {
+	    private final Collector<? super T, ?, Map<K,D>> collector;
+
+
+	    private GroupingBuilder(Collector<? super T, ?, Map<K,D>> collector){
+	        this.collector = collector;
+	    }
+
+
+	    public Collector<? super T, ?, Map<K, D>> get(){
+	        return collector;
+	    }
+
+
+	    public <J> GroupingBuilder<T, Map<K, D>> get(){
+	        return collector;
+	    }
+
+
+	    public static <T, D, K> GroupingBuilder<T, List<T>, K> groupOn(Function<? super T, ? extends K> classifier){
+	        return new GroupingBuilder<>(groupingBy(classfier));
+	    }
+
+
+	}
 
 
 	```
+
+##### 10.3 자바로 DSL을 만드는 패턴과 기법
+
+-	시장에서 주식가격에 모델링하는 예제
+
+```java
+// 도메인 객체 API를 직접 이용하여 주문을 의미하는 객체 만들기
+Order order = new Order();
+order.setCustomer("BigBank");
+
+Trade trade1 = new Trade();
+trade1.setType(Trade.Type.BUY);
+
+Stock stock1 = new Stock();
+stock1.setSymbol("IBM");
+stock1.setMarket("NYSE");
+
+trade1.setStock(stock1);
+trade1.setPrice(125.00);
+trade1.setQuantity(80);
+order.addTrade(trade1);
+
+// 메서드 체인
+Order order = forCustomer("BingBank")
+	.buy(80)
+	.stock("IBM")
+	.on("NYSE")
+	.at(125.00)
+	.sell(50)
+	.stock("GOOGLE")
+	.on("NASDAQ")
+	.at(375.00)
+	.end();
+
+
+// 중첩된 함수 DSL 패턴
+Order order = order("BigBank",
+	buy(80, stock("IBM", on("NYSE")), at(125.00)),
+	sell(50, stock("GOOGLE", on("NASDAQ")), at(375.00))
+	);
+
+
+// 람다 표현식으로 정의한 함수 스퀀스
+Order order = order(o -> {
+	o.forCustomer( "BingBank" );
+	o.buy( t-> {
+		t.quantity(80);
+		t.price(125.0);
+		t.stock( s-> {
+			s.symbol("IBM");
+			s.market("NYSE");
+		});
+	});
+	o.sell( t-> {
+		t.quantity(50);
+		t.price(375.00);
+		t.stock( s -> {
+			s.symbol("GOOGLE");
+			s.martket("NASDAQ");
+		});
+	});
+});
+
+// 조합하기
+
+// 메서드참조 사용하기
+```
+
+##### 10.4 실생활의 자바 8 DSL
+
+-	자바 DSL 패턴의 장단점
+
+	-	메서드 체인
+
+		-	장점
+
+			-	메서드 이름이 키워드 인수 역할을 한다.
+			-	선택형 파라미터와 잘 동작한다.
+			-	DSL 사용자가 정해진 순서로 메서드를 호출하도로 강제할 수 있다.
+			-	정적 메서드를 최소화하거나 없앨 수 있다.
+			-	문법적 잡음을 최소화한다.
+
+		-	단점
+
+			-	구현이 장황하다.
+			-	빌드를 연결하는 접착 코드가 필요하다.
+			-	들여쓰기 규칙으로만 도메인 객체 계층을 정의한다.
+
+	-	중첩함수
+
+		-	장점
+
+			-	구현의 장황함을 줄일 수 있다.
+			-	함수 중첩으로 도메인 객체 계층을 반영한다.
+
+		-	단점
+
+			-	정적메서드의 사용이 빈번하다.
+			-	이름이 아닌 위치로 인수를 정의한다.
+			-	선택형 파라미터를 처리할 메서드 오버로딩이 필요하다.
+
+	-	람다를 이용한 함수 시퀀싱
+
+		-	장점
+
+			-	선택형 파라미터와 잘 동작한다.
+			-	정적 메서드를 최소화하거나 없앨 수 있다.
+			-	람다 중첩으로 도메인 객체 계층을 반영한다.
+			-	빌더의 접착 코드가 없다.
+
+		-	단점
+
+			-	구현이 장황하다.
+			-	람다 표현식으로 인한 문법적 잡음이 DSL에 존재한다.
+
+-	jOOQ : SQL을 구현하는 내부적으로 DSL로 자바에 직접 내장된 형식 안전 언어
+
+	-	메서드 체인 패턴 사용함
+
+```java
+// jOOQ DSL 예시 (스트림API와도 조합가능함!)
+Class.forName("org.h2.Driver");
+
+try(Connection c = getConneciton("jdbc:h2:~/sql-goodies-with-mapping", "sa", "")){
+	DSL.using(c)
+		.select(BOOK.AUTHOR, BOOK.TITLE)
+		.where(BOOK.PUBISHED_IN.eq(2016))
+		.orderBy(BOOK.TITLE)
+	.fetch()
+	.stream()
+	.collect(groupingBy(
+	r -> r.getValue(BOOK.AUTHOR), LinkedHashMap::new, mapping(r -> r.getValue(BOOK.TITLE), toList())
+	))
+	.forEach((author, titles) -> System.out.println(author + "is author of " + title));
+}
+```
+
+-	큐컴버 : 다른 BDD 프레임워크와 마찬가지로 이들 명령문을 실행할 수 있는 테스트 케이스로 변환한다.
+	-	BDD(Behavior-driven development) 동작 주도 개발 : 테스트 주도 개발의 확장으로 다양한 비즈니스 시나리오를 구조적으로 서술하는 간단한 도메인 전용 스트립팅 언어를 사용한다.
+
+```java
+// 큐컴버 스크립팅 언어를 사용한 간단한 비즈니스 시나리오 정의
+Feature: Buy stocks
+	Scenario: Buy 10 IBM stocks
+		 Given the price of a "IBM" stock is 125$
+		 When I buy 10 "IBM"
+		 Then the order value should be 1250$
+
+
+// 큐컴버 어노테이션을 이용해 테스트 시나리오 구현
+public class BuyStocksSteps {
+	private Map<String, Integer> stockUnitPrices = new HashMap<>();
+	private Order order = new Order();
+
+	@Given("^the price of a \"(.*?)\" stock is (\\d+)\\$$")
+	public void setUnitPrice(String stockName, int unitPrice){
+		stockUnitValues.put(stockName, unitPrice);
+	}
+
+	@When("^I buy (\\d+) \"(.*?)\"$")
+	public void buyStocks(int quantity, String stockName){
+		Trade trade = new Trade();
+		trade.setType(Trade.Type.BUY);
+
+		Stock stock = new Stock();
+		stock.setSymbol(stockName);
+
+		trade.setStock(stock);
+		trade.setPrice(stockUnitPrices.get(stockName));
+		trade.setQuantity(quantity);
+		order.addTrade(trade);
+	}
+
+	@Then("^the order value should be (\\d+)\\$$")
+	public void checkOrderValue(int expectedValue) {
+		assertEquals(expectedValue, order.getValue());
+	}
+}
+
+// 자바8을 활용하여 어노테이션 제거
+public class BuyStockSteps2 implements cucumber.api.java8.En {
+	private Map<String, Integer> stockUnitPrices = new HashMap<>();
+	private Order order = new Order();
+
+	public BuyStocksSteps() {
+		Given("^the price of a \"(.*?)\" stock is (\\d+)\\$$", (String stockName, int unitPrice) -> {
+			stockUnitValues.put(stockName, unitPrice);
+		});
+
+		...
+	}
+
+}
+```
+
+-	스프링 통합 (Spring Integration)
+	-	스프링 통합은 유명한 엔터프라이즈 통합 패턴을 지원할 수 있도록 의존성 주입에 기반한 스프링 프로그래밍 모델을 확장한다.
+	-	스프링 통합의 핵심목표는 복잡한 엔터프라이즈 통합 솔류션을 구현하는 단순한 모델을 제공하고 비동기, 메시지 주도 아키텍쳐를 쉽게 적용할 수 있게 돕는 것이다.
+	-	스프링 통합은 채널, 엔드포인트, 폴러, 채널 인터셉터 등 메시지 기반의 애플리케이션에 필요한 가장 공통 패턴을 모두 구현한다. 가독성이 높아지도록 엔트포인트는 DSL에서 동사로 구현하여 여러 엔드포인트를 한 개 이상의 메시지 흐름으로 조합해서 통합 과정이 구성된다.
+
+```java
+@Configuration
+@EnableIntegration
+public class MyConfiguration {
+
+    @Bean
+    public MessageSource<?> integerMessageSource(){
+        MethodInvokingMessageSource source = new MethodInvokingMessageSource();
+        source.setObject(new AtomicInteger());
+        source.setMethodName("getAndIncrement");
+        return source;
+    }
+
+    @Bean
+		public DirectChannel inputChannel(){
+			return new DirectChannel();
+		}
+
+		@Bean
+		public IntegationFlow myFlow(){
+			return IntegrationFlows.from(
+			this.integerMessageSource(), c -> c.poller(Pollers.fixedRate(10)))
+				.channel(this.inputChannel())
+				.filter((Integer p) -> p % 2 == 0)
+				.transform(Object::toString)
+				.channel(MessageChannels.queue("queueChannel"))
+				.get();
+
+		}
+}
+```
+
+##### 10.5 마치며
