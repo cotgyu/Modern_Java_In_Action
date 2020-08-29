@@ -1117,5 +1117,3 @@ public class MyConfiguration {
 		}
 }
 ```
-
-##### 10.5 마치며
