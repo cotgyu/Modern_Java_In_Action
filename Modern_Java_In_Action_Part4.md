@@ -73,7 +73,6 @@ public String getCarInsuranceName2(Person person){
 
 	return insurance.getName();
 }
-
 ```
 
 -	null 때문에 발생하는 문제
@@ -95,39 +94,44 @@ public String getCarInsuranceName2(Person person){
 ##### 11.2 Optional 클래스 소개
 
 -	자바8은 하스켈과 스칼라의 영향을 받아서 java.util.Optional<T> 라는 새로운 클래스를 제공한다.
+
 	-	Optional은 선택형값을 캡슐화하는 클래스다.
 	-	값이 있으면 Optional 클래스는 값을 감싼다. 값이 없으면 Optional.empty 메서드로 Optional을 반환한다.
 	-	Optional을 이용하면 값이 없는 상황이 우리 데이터에 문제가 있는 것인지 아니면 알고리즘의 버그인지 명확하게 구분할 수 있다.
 	-	모든 null 참조를 Optional로 대치하는 것은 바람직하지 않다.
 	-	Optional의 역할은 더 이해하기 쉬운 API를 설계하도록 돕는 것이다.
+
 		-	메서드의 시그니처만 보고도 선택형 값인지 여부를 구별할 수 있다.
 		-	Optional이 있다면 값이 없을 수 있는 상황에서 적절하게 대응하도록 강제하는 효과가 있다.
 
-```java
-// Optional을 활용한 데이터모델 재정의
-public class Person{
-	private Optional<Car> car;
-	private Optional<Car> getCar(){
-		return car;
-	}
-}
+		```java
+		// Optional을 활용한 데이터모델 재정의
+		public class Person{
+		    private Optional<Car> car;
+		    private Optional<Car> getCar(){
+		        return car;
+		    }
+		}
 
-public class Car{
-	private Optional<Insurance> insurance;
-	private Optional<Insurance> getInsuracne(){
-		return insurance;
-	}
-}
 
-// 반드시 값이 있어야하는 경우 사용 X (없는 경우는 문제를 해결해야함)
-public class Insurance{
-	private String name;
-	public String getName(){
-		return name;
-	}
-}
+		public class Car{
+		    private Optional<Insurance> insurance;
+		    private Optional<Insurance> getInsuracne(){
+		        return insurance;
+		    }
+		}
 
-```
+
+		// 반드시 값이 있어야하는 경우 사용 X (없는 경우는 문제를 해결해야함)
+		public class Insurance{
+		    private String name;
+		    public String getName(){
+		        return name;
+		    }
+		}
+
+
+		```
 
 ##### 11.3 Optional 적용 패턴
 
@@ -149,34 +153,33 @@ public class Insurance{
 
 	-	Optional이 비어있으면 get을 호출했을 때 예외가 발생한다. 즉, 잘못사용하면 null을 사용했을 때와 같은 문제를 겪을 수 있다. 따라서 먼저 Optional로 명시적인 검사를 제거할 수 있는 방법을 살펴본다.
 
-	```java
-	// 보험회사의 이름을 추출한다고 가정한다. (정보에 접근하기전에 null 체크를 해야함)
-	String name = null;
-	if(insurance != null){
-	    name = insurance.getName();
-	}
+		```java
+		// 보험회사의 이름을 추출한다고 가정한다. (정보에 접근하기전에 null 체크를 해야함)
+		String name = null;
+		if(insurance != null){
+		    name = insurance.getName();
+		}
 
 
-	// map을 사용 (Optional이 값을 포함하면 map의 인수로 제공된 함수가 값을 바꾼다. Optional이 비어있으면 아무일도 일어나지 않음)
-	Optional<Insurance> optInsurance = Optional.ofNullable(insurance);
-	Optional<String> name = optInsurance.map(Insurance::getName);
-	```
+		// map을 사용 (Optional이 값을 포함하면 map의 인수로 제공된 함수가 값을 바꾼다. Optional이 비어있으면 아무일도 일어나지 않음)
+		Optional<Insurance> optInsurance = Optional.ofNullable(insurance);
+		Optional<String> name = optInsurance.map(Insurance::getName);
+		```
 
 -	flatMap으로 Optional 객체 연결
 
-```java
-// 컴파일되지 않음!
-// getCar의 반환 값이 Optional<Car> 형식이기 때문에 map의 연산결과는 Optional<Optional<Car>> 가 된다.
-Optional<Person> optPerson = Optional.of(person);
-Optional<String> name = optPerson.map(Person::getCar).map(Car::getInsurance).map(Insurance::getName);
+	```java
+	// 컴파일되지 않음!
+	// getCar의 반환 값이 Optional<Car> 형식이기 때문에 map의 연산결과는 Optional<Optional<Car>> 가 된다.
+	Optional<Person> optPerson = Optional.of(person);
+	Optional<String> name = optPerson.map(Person::getCar).map(Car::getInsurance).map(Insurance::getName);
 
 
-// 스트림의 flatMap은 함수를 인수로 받아서 다른 스트림을 반환함.
-public String getCarInsuranceName(Optional<Person> person){
-	return person.flatMap(Person::getCar).flatMap(Car::getInsurance).map(Insurance::getName).orElse("Unknown");
-}
-
-```
+	// 스트림의 flatMap은 함수를 인수로 받아서 다른 스트림을 반환함.
+	public String getCarInsuranceName(Optional<Person> person){
+	    return person.flatMap(Person::getCar).flatMap(Car::getInsurance).map(Insurance::getName).orElse("Unknown");
+	}
+	```
 
 > Optional을 인수로 받거나 Optional을 반환하는 메서드를 정의한다면 결과적으로 이 메서드를 사용하는 모든 사람에게 이 메서드가 빈 값을 받거나 빈 결과를 반환할 수 있음을 잘 문서화해서 제공하는 것과 같다.
 
@@ -198,18 +201,16 @@ public String getCarInsuranceName(Optional<Person> person){
 
 	-	자바9에서는 Optional을 포함하는 스트림을 쉽게 처리할 수 있도록 Optional에 stream() 메서드를 추가했다. (Optional 스트림을 값을 가진 스트림으로 변환할 때 이 기능을 유용하게 활용할 수 있다.)
 
-	```java
-	public Set<String> getCarInsuranceNames(List<Person> persons){
-	    return persons.stream()
-	        .map(Person::getCar)
-	        .map(optCar -> optCar.flatMap(Car::getInsurance))
-	        .map(optIns -> optIns.flatMap(Insurance::getNames))
-	        .flatMap(Optional::stream)
-	        .collect(toSet());
-	}
-
-
-	```
+		```java
+		public Set<String> getCarInsuranceNames(List<Person> persons){
+		    return persons.stream()
+		        .map(Person::getCar)
+		        .map(optCar -> optCar.flatMap(Car::getInsurance))
+		        .map(optIns -> optIns.flatMap(Insurance::getNames))
+		        .flatMap(Optional::stream)
+		        .collect(toSet());
+		}
+		```
 
 -	디폴트 액션과 Optional 언랩
 
@@ -234,23 +235,23 @@ public String getCarInsuranceName(Optional<Person> person){
 
 	-	두 Optional을 인수로 받아 Optional<Insurance>을 반환하는 null 안전 버전 메서드
 
-	```java
-	// null 확인 코드와 크게 다른 점이 없다!
-	public Optional<Insurance> nullSafeFindCheapestInsurance(Optional<Person> person, Optional<Car> car){
-	    if(person.isPresent() && car.isPresent()){
-	        return Optional.of(findCheapestInsurance(person.get(), car.get()));
-	    }else{
-	        return Optional.empty();
-	    }
-	}
+		```java
+		// null 확인 코드와 크게 다른 점이 없다!
+		public Optional<Insurance> nullSafeFindCheapestInsurance(Optional<Person> person, Optional<Car> car){
+		    if(person.isPresent() && car.isPresent()){
+		        return Optional.of(findCheapestInsurance(person.get(), car.get()));
+		    }else{
+		        return Optional.empty();
+		    }
+		}
 
 
-	// map과 flat map 활용
-	// 첫ㅎ번째 Optional에 flatMap을 호출했으므로 Optional이 비어있다면 인수로 전달한 람다표현식이 실행되지 않고 그대로 빈 Optional이 반환됨.
-	public Optional<Insurance> nullSafeFindCheapestInsurance2(Optional<Person> person, Optional<Car> car){
-	    return person.flatMap(p -> car.map( c -> findCheapestInsurance(P, c)));
-	}
-	```
+		// map과 flat map 활용
+		// 첫ㅎ번째 Optional에 flatMap을 호출했으므로 Optional이 비어있다면 인수로 전달한 람다표현식이 실행되지 않고 그대로 빈 Optional이 반환됨.
+		public Optional<Insurance> nullSafeFindCheapestInsurance2(Optional<Person> person, Optional<Car> car){
+		    return person.flatMap(p -> car.map( c -> findCheapestInsurance(P, c)));
+		}
+		```
 
 -	필터로 특정 값 거르기
 
@@ -261,21 +262,21 @@ public String getCarInsuranceName(Optional<Person> person){
 		-	Optional은 최대 한 개 요소를 포함할 수 있는 스트림과 같다.
 		-	Optional이 비어있다면 filter 연산은 아무 동작하지 않음. 값이 있다면 그 값에 프레디케이트 적용
 
-	```java
-	Insurance insurance = ...;
+		```java
+		Insurance insurance = ...;
 
 
-	if(insurance != null && "CambridgeInsurance".equals(insurance.getName())){
-	    System.out.println("ok");
-	}
+		if(insurance != null && "CambridgeInsurance".equals(insurance.getName())){
+		    System.out.println("ok");
+		}
 
 
-	// Optional 객체에 filter 사용하여 재구현
-	Optional<Insurance> optInsurance = ...;
+		// Optional 객체에 filter 사용하여 재구현
+		Optional<Insurance> optInsurance = ...;
 
 
-	optInsurance.filter(insurance -> "CambridgeInsurance".equals(insurance.getName())).ifPresent( x -> System.out.println("ok"));
-	```
+		optInsurance.filter(insurance -> "CambridgeInsurance".equals(insurance.getName())).ifPresent( x -> System.out.println("ok"));
+		```
 
 -	383p [표 11-1] : Optional 클래스의 메서드를 보여줌. 참고할 것
 
@@ -289,13 +290,13 @@ public String getCarInsuranceName(Optional<Person> person){
 	-	null을 반환하는 것보다는 Optional을 반환하는 것이 더 바람직하다.
 	-	get메서드의 시그니처는 고칠 수 없지만 get메서드의 반환 값은 Optional로 감쌀 수 있다.
 
-	```java
-	Object value = map.get("key");
+		```java
+		Object value = map.get("key");
 
 
-	// 개선
-	Optional<Object> value2 = Optional.ofNullable(map.get("key"));
-	```
+		// 개선
+		Optional<Object> value2 = Optional.ofNullable(map.get("key"));
+		```
 
 -	예외와 Optional 클래스
 
@@ -303,15 +304,15 @@ public String getCarInsuranceName(Optional<Person> person){
 
 	-	유틸리메서드를 구현하여 Optional을 반환할 수 있도록 감싸자. 매번 try/catch로 감쌀 필요 없다.
 
-	```java
-	public static Optional<Integer> stringToInt(String s){
-	    try{
-	        return Optional.of(Integer.parseInt(s));
-	    } catch(NumberFormatException e){
-	        return Optional.empty();
-	    }
-	}
-	```
+		```java
+		public static Optional<Integer> stringToInt(String s){
+		    try{
+		        return Optional.of(Integer.parseInt(s));
+		    } catch(NumberFormatException e){
+		        return Optional.empty();
+		    }
+		}
+		```
 
 -	기본형 Optional을 사용하지 말아야 하는 이유
 
