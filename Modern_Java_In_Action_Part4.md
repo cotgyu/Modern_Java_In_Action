@@ -788,3 +788,509 @@ LocalDate date6 = date5.minusYears(6);
 		    }
 		}
 		```
+
+#### Chap 14 - 자바 모듈 시스템
+
+-	자바 9에서 가장 많이 거론되는 새로운 기능은 모듈 시스템이다.
+
+-	14장에서는 모듈 시스템이란 무엇이며, 새로운 자바 모듈시스템이 어디에서 사용될 수 있으며, 개발자는 이로부터 어떤 이익을 얻을 수 있는지를 설명함.
+
+-	깊게 보려면 니콜라이 팔로그 - The Java Module System 책을 추천한다고 함.
+
+##### 14.1 압력 : 소프트웨어 유추
+
+-	어떤 동기와 배경으로 자바 언어 설계자들이 목표를 정했는 지 이해해보자.
+
+-	지금까지는 서술하는 듯한 코드 즉 이해하고 유지보수하기 쉬운 코드를 구현하는 데 사용할 수 있는 새로운 언어 기능을 소개했다. 궁극적으로 소프트웨어 아키텍처 즉 고수준에서 기반 코드를 바꿔야할 때 유추하기 쉬우므로 생산성을 높일 수 있는 소프트웨어 프로젝트가 필요하다. (관심사분리와 정보은닉을 살펴본다.)
+
+-	관심사 분리
+
+	-	컴퓨터 프로그램을 고유의 기능으로 나누는 동작을 권장하는 원칙
+
+	-	어플리케이션을 개발할 떄 SoC를 적용함으로 각 기능별 모듈(서로 겹치지 않는 코드 그룹)로 분리할 수 있다.
+
+		-	SoC 원칙은 모델, 뷰, 컨트롤러 같은 아키텍쳐 관점 그리고 복구 기법을 비즈니스 로직과 분리하는 등의 하위 수준 접근 등의 상황에서 유용하다.
+
+			-	개발 기능을 따로 작업할 수 있으므로 팀이 쉽게 협업할 수 있다.
+			-	개별 부분을 재사용하기 쉽다.
+			-	전체 시스템을 쉽게 유지보수할 수 있다.
+
+-	정보 은닉
+
+	-	세부 구현을 숨기도록 장려하는 원칙
+
+		-	소프트웨어 개발 시 요구사항은 자주 바뀔 수 있다. 세부 구현을 숨김으로 프로그램의 어떤 부분을 바꿨을 때 다른 부붑까지 영향을 미칠 가능성을 줄여준다.
+
+		-	**코드를 관리하고 보호하는 데 유용한 원칙** / 캡슐화와 관련됨
+
+-	자바에서는 public, protected, private 등의 접근 제한자와 패키지 수준 접근 권한 등을 이용해 메서드, 필드 클래스의 접근을 제어했다. 하지만, 이런 방식으로는 원하는 접근 제한을 달성하기 어려우며 심지어 최종 사용자에게 원하지 않는 메서드도 공개해야하는 상황이 발생했다.
+
+##### 14.2 자바 모듈 시스템을 설계한 이유
+
+-	모듈화의 한계
+
+	-	자바 9 이전까지는 모듈화된 소프트웨어 프로젝트를 만드는 데 한계가 있었다.
+	-	자바는 클래스, 패키지, JAR 세 가지 수준의 코드 그룹화를 제공한다.
+	-	클래스와 관련해 자바는 접근제한자와 캡슐화를 지원하지만 패키지와 JAR 수준에서는 캡슐화를 거의 지원하지 않는다.
+
+	-	제한된 가시성 제어
+
+		-	많은 애플리케이션은 다양한 클래스 그룹을 정의한 여러 패키지가 있는데 패키지의 가시성 제어 기능은 유명무실할 수준이다.
+		-	한 패키지의 클래스와 인터페이스를 다른 패키지로 공개하려면 public으로 이들을 선언해야한다.
+		-	결국 이들 클래스와 인터페이스는 모두에게 공개된다.
+
+	-	클래스 경로
+
+		-	자바는 클래스를 모두 컴파일한 다음 보통 한 개의 평범항 JAR파일에 넣고 클래스에 경로에 이 JAR파일을 추가해 사용할 수 있다. 그러면 JVM이 동적으로 클래스 경로에 정의된 클래스를 필요할 때 읽는다.
+
+		-	클래스 경로와 JAR 조합에는 몇 가지 약점이 존재한다.
+
+			-	클래스 경로에는 같은 클래스를 구분하는 버전 개념이 없다. (ex_ 다른버전의 같은라이브러리 존재 시 어떤 일이 발생할 지 예측할 수 없음)
+			-	클래스 경로는 명시적인 의존성을 지원하지 않는다. (빠진게 있는지?, 충돌이 있는지? 파악불가)
+
+	-	메이븐이나 그레이들 같은 빌드 도구는 이런 문제를 해결하는 데 도움을 준다. 하지만 자바 9 이전에는 자바, JVM 누구도 명시적인 의존성 정의를 지원하지 않았다.
+
+		-	결국 JVM이 ClassNotFoundException같은 에러를 발생시키지 않고 애플레케이션을 정상적으로 실행할 때 까지 클래스 경로에 클래스 파일을 더하거나 클래스 경로에 클래스를 제거해보는 수 밖에 없다.
+		-	자바 9 모듈 시스템을 이용하면 컴파일 타임에 이런 종류의 에러를 모두 검출할 수 있다.
+
+-	거대한 JDK
+
+	-	JDK는 자바 프로그램을 만들고 실행하는 데 도움을 주는 도구의 집합이다.
+		-	JDK 라이브러리의 많은 내부 API는 공개되지 않아야 한다. 안타깝게도 자바 언어의 낮은 캡슐화 지원 때문에 내부 API가 외부에 공개되었다.
+		-	Spring, Netty, Mockito 등 여러 라이브러리에서 su.misc.Unsafe라는 클래스를 사용했는데, 이 클래스는 JDK 내부에서만 사용하도록 만든 클래스다. 결과적으로 호환성을 깨지않고는 관련 API를 바꾸기가 아주 어려운 상황이 되었다.
+		-	이런 문제들 때문에 JDK자체도 모듈화할 수 있는 자바 모듈 시스템 설계의 필요성이 제기되었다,
+			-	JDK에서 필요한 부분만 골라 사용하고, 클래스 경로를 쉽게 유추할 수 있으며, 플랫폼을 진화시킬 수 있는 강력한 캡슐화를 제공할 새로운 건축 구조가 필요했다.
+
+-	OSGi와 비교
+
+	-	자바 9에서 직소 프로젝트에 기반한 모듈화 기능이 추가되기 전에는 자바에는 이미 OSGi라는 강력한 모듈 시스템이 존재했다. (공식기능은 아님)
+	-	OSGi와 자바 9 모듈 시스템은 상호 배타적인 관계가 아님.
+
+		-	두 기능은 부분적으로만 중복됨.
+		-	OSGi는 훨씬 더 광범위한 영역을 가지며 직소에서 제공하지 않는 여러 기능을 제공한다.
+		-	번들이라고 불리는 OSGi 모듈은 특정 OSGi 프레임워크 내에서만 실행된다.
+		-	대표적인 OSGi 프레임워크 구현으로는 아파치 펠릭스, 애퀴녹스
+
+	-	시스템을 재시작하지 않고도 애플리케이션의 다른 하위 부분을 핫스왑할 수 있다는 점이 직소와 다른 OSGi만의 강점
+
+	-	번들의 동작에 필요한 외부 패키지가 무엇이며 어떤 내부 패키지가 외부로 노출되어 다른 번들로 제공되는지를 서술하는 텍스트 파일로 각 번들을 정의함
+
+	-	동시에 프레임워크 내에 같은 번들의 다른 버전을 설치할 수 있음
+
+	-	OSGi의 각 번들이 자체적인 클래스 로더를 갖는 반면, 자바 9 모듈 시스템의 직소는 애플리케이션당 한 개의 클래스를 사용하므로 버전 제어를 원하지 않는다.
+
+##### 14.3 자바 모듈 : 큰 그림
+
+-	자바는 모듈이라는 새로운 자바 프로그램 구조 단위를 제공한다.
+
+	-	모듈은 module 이라는 새 키워드에 이름과 바디를 추가해서 정의한다.
+	-	모듈 디스크립터는 module-info.java라는 특별한 파일에 저장된다.
+	-	모듈 디스크립터는 보통 패키지와 같은 폴더에 위치하면서 한 개 이상의 패키지를 서술하며 캡슐화할 수 있지만 단순한 상황에서는 이들 패키지 중 한 개만 외부로 노출시킨다.
+
+```text
+자바 모듈 디스크립터의 핵심 구조 (module-info.java)
+
+module 모듈명
+exports 패키지명
+requires 모듈명
+```
+
+##### 14.4 자바 모듈 시스템으로 애플리케이션 개발하기
+
+-	간단한 모듀화 애플리케이션을 기초부터 만들면서 자바 9 모듈 시스템 전반을 살펴본다.
+
+-	애플리케이션 셋업
+
+	-	비용 관리 문제를 해결해줄 애플리케이션을 구현해보자.
+
+		-	애플리케이션은 다음의 작업을 처리해야 한다.
+
+			-	파일이나 URL에서 비용목록을 읽는다.
+			-	비용의 문자열 표현을 파싱한다.
+			-	통계를 계산한다.
+			-	유용한 요약 정보를 표시한다.
+			-	각 태스트의 시작, 마무리 지점을 제공한다.
+
+		-	여러기능(관심사) 분리
+
+			-	다양한 소스에서 데이터를 읽음(Reader, HttpReader, FileReader)
+			-	다양한 포맷으로 구성된 데이터를 파싱(Parser, JOSNParser, ExpenseJSON-Parser)
+			-	도메인 객체를 구체화(Expense)
+			-	통계를 계산하고 반환(SummaryCalculator, SummaryStatistics)
+			-	다양한 기능을 분리 조정(ExpensesApplication)
+
+		-	기능 그룹화
+
+			-	expense.readers
+			-	expense.readers.http
+			-	expense.readers.file
+			-	expense.parsers
+			-	expense.parsers.json
+			-	expense.model
+			-	expense.statistics
+			-	expense.application
+
+-	세부적인 모듈화와 거친 모듈화
+
+	-	시스템을 모듈화할 때 모듈 크기를 결정해야 한다.
+
+		-	가장 좋은 방법은 시스템을 실용적으로 분해하면서 진화하는 소프트웨어 프로젝트가 이해하기 쉽고 고치기 쉬운 수준으로 적절하게 모듈화되어 있는지 주기적으로 확인하는 프로세스를 갖는다.
+
+	-	자바 모듈 시스템 기초
+
+		-	한 개의 모듈만 갖는 기본적인 모듈화 애플리케이션 구조이다.
+
+			```text
+			|-- expenses.application
+			    |-- module-info.java
+			    |-- com
+			        |-- example
+			            |-- expenses
+			                |-- application
+			                    |-- ExpensesApplication.java
+			```
+
+		-	module-info.java : 모듈 디스크립터로 모듈의 소스 코드 파일 로트에 위치해야 하며 모듈의 의존성 그리고 어떤 기능을 외부로 노출할지를 정의한다.
+
+		-	모듈화 애플리케이션 실행 방법
+
+			-	java 프로그램으로 자바 .class 파일을 실행할 때 두 가지 옵션이 추가되었다.
+				-	--module-path : 어떤 모듈을 로드할 수 있는지 지정한다. 이 옵션은 클래스 파일을 지정하는 --classpath 인수와는 다르다.
+				-	--module : 실행할 메인 모듈과 클래스를 지정한다.
+
+			```text
+			javac module-info.java com/example/expenses/application/ExpensesApplication.java -d target
+
+
+			jar cvfe expenses-application.jar com.example.expenses.application.ExpensesApplication -C target
+
+
+			jar --module-path expenses-application.jar \ --module expenses/com.example.expenses.application.ExpensesApplication
+			```
+
+##### 14.5 여러 모듈 활용하기
+
+-	다양한 모둘과 관련된 실용적인 예제를 살펴보자
+
+	-	비용 애플리케이션이 소스에서 비용을 읽을 수 있어야 한다. (이 기능을 캡슐화한 expense.reader 라는 새 모듈을 만들 것이다.)
+
+-	exports 구문
+
+	-	exports는 다른 모듈에서 사용할 수 있도록 특정 패키지를 공개 형식으로 만든다.
+	-	기본적으로 모듈 내의 모든 것은 캡슐화된다.
+	-	모듈 시스템은 화이트 리스트 기법을 이용해 강력한 캡슐화를 제공하므로 다른 모듈에서 사용할 수 있는 기능이 무엇인지 명시적으로 결정해야 한다.
+
+	```text
+	// expenses.readers 모듈의 선언
+	module expenses.readers{
+	        exports com.example.expenses.readers;
+	        exports com.example.expenses.readers.file;
+	        exports com.example.expenses.readers.http;
+	}
+
+
+	// 프로젝트의 두 모듈의 디렉토리 구조
+	|-- expenses.application
+	        |-- module-info.java
+	        |-- com
+	                |-- example
+	                        |-- expenses
+	                                |-- application
+	                                        |-- ExpensesApplication.java
+
+
+	|-- expenses.readers
+	    |-- module-info.java
+	    |-- com
+	        |-- example
+	            |-- expenses
+	                |-- readers
+	                    |-- Reader.java
+	                |-- file
+	                    |-- FileReader.java
+	                |-- http
+	                    |-- HttpReader.java
+	```
+
+-	requires 구분
+
+	-	requires는 의존하고 있는 모듈을 지정한다.
+	-	기본적으로 모든 모듈은 java.base 라는 플랫폼 모듈에 의존하는데 이 플랫폼 모듈은 net, io, util 등의 자바 메인 패키지를 포함한다. (명시적으로 정의할 필요는 없음)
+
+		```text
+		module expenses.readers{
+		    requires java.base;
+
+
+		    exports com.example.expenses.readers;
+		    exports com.example.expenses.readers.file;
+		    exports com.example.expenses.readers.http;
+		}
+		```
+
+	-	자바 9에서는 requires 와 exports 구문을 이용해 좀 더 정교하게 클래스 접근을 제어할 수 있다.
+
+		-	447p 표 14-2 참조
+
+-	이름 정하기
+
+	-	모듈명은 패키지명처럼 인터넷 도메인명을 역순으로 이름을 정하도록 권고한다.
+
+##### 14.6 컴파일과 패키징
+
+-	위에선 프로젝트를 설정하고 모듈을 정의했다. 메이븐 등의 빌드 도구를 이용해 프로젝트를 컴파일할 수 있다.
+
+-	각 모듈에 pom.xml을 추가해야한다. 전체 프로젝트 빌드를 조정할 수 있도록 모든 모듈의 부모 모듈에도 추가해야함!
+
+	```text
+
+
+	    // 프로젝트의 두 모듈의 디렉토리 구조
+	    |-- pom.xml
+	    |-- expenses.application
+	        |-- pom.xml
+	        |-- src
+	            |-- main
+	                |-- java
+	                  |-- module-info.java
+	                  |-- com
+	                          |-- example
+	                                  |-- expenses
+	                                          |-- application
+	                                                  |-- ExpensesApplication.java
+
+
+	    |-- expenses.readers
+	      |-- pom.xml
+	      |-- src
+	          |-- main
+	            |-- java
+	              |-- module-info.java
+	              |-- com
+	                  |-- example
+	                      |-- expenses
+	                          |-- readers
+	                              |-- Reader.java
+	                          |-- file
+	                              |-- FileReader.java
+	                          |-- http
+	                              |-- HttpReader.java
+	```
+
+-	expenses.reader 프로젝트의 pom.xml 에는 부모 모듈을 지정해줘야한다.
+
+	```text
+	...
+	<project ...>
+	...
+	    <groupId>com.example</groupId>
+	    <artifactId>expenses.readers</artifactId>
+	    <version>1.0</version>
+	    <packaging>jar</packaging>
+	    <parent>
+	        <groupId>com.example</groupId>
+	        <artifactId>expenses</artifactId>
+	        <version>1.0</version>
+	    </parent>
+	</project>
+	```
+
+-	expenses.application 의 pom.xml 에는 ExpenseApplication이 필요로 하는 클래스와 인스터페이스가 있으므로 expenses.readers를 의존성으로 추가해야한다.
+
+	```text
+	...
+	<project ...>
+	...
+	    <groupId>com.example</groupId>
+	    <artifactId>expenses.application</artifactId>
+	    <version>1.0</version>
+	    <packaging>jar</packaging>
+	    <parent>
+	        <groupId>com.example</groupId>
+	        <artifactId>expenses</artifactId>
+	        <version>1.0</version>
+	    </parent>
+
+
+	   <dependencies>
+	    <dependency>
+	        <groupId>com.example</groupId>
+	        <artifactId>expenses.readers</artifactId>
+	        <version>1.0</version>
+	    </dependency>
+	  </dependencies>
+	</project>
+	```
+
+-	전역(루트프로젝트) pom.xml 설정 (메이븐은 특별한 XML 요소 <module>을 가진 여러 메이븐 모듈을 가진 프로젝트를 지원한다.)
+
+	```text
+	...
+	<project ...>
+	...
+
+
+	    <groupId>com.example</groupId>
+	    <artifactId>expenses</artifactId>
+	    <version>1.0</version>
+	    <packaging>pom</packaging>
+
+
+	    <modules>
+	        <module>expenses.application</module>
+	        <module>expenses.readers</module>
+	    <modules>
+
+
+	    <build>
+	        <pluginManagement>
+	            <plugins>
+	                <plugin>
+	                  <groupId>com.apache.maven.plugins</groupId>
+	                  <artifactId>maven-compiler-plugin</artifactId>
+	                      <version>3.7.0</version>
+	                      <configuration>
+	                          <source>9</source>
+	                          <target>9</target>
+	                      </configuration>
+	                </plugin>
+	            </plugins>
+	        </pluginManagement>
+	    </build>
+
+
+	</project>
+	```
+
+	-	mvc clean package 명령을 실행하면 프로젝트의 모듈을 JAR로 만들 수 있다.
+
+		```text
+		 ./expenses.application/target/expenses.application-1.0.jar
+		 ./expenses.readers/target/expenses.reader-1.0.jar
+
+
+		 // 실행 방법
+		 java --module-path \
+		 ./expenses.application/target/expenses.application-1.0.jar:\
+		 ./expenses.readers/target/expenses.reader-1.0.jar \
+		    --module \
+		    expenses.application/com.example.expenses.application.ExpensesApplication
+		```
+
+##### 14.7 자동모듈
+
+-	HttpReader를 만일 httpclient 라이브러리를 사용해 구현하면 어떻게 추가할까?
+
+	-	expenses.readers 프로젝트의 module-info.java 에 requires 구문을 사용해 추가한다.
+	-	pom.xml 에 dependency 에 추가한다.
+
+-	자바는 JAR를 자동 모듈이라는 형태로 적절하게 변환한다.
+
+-	모듈 경로상에 있으나 module-info 파일을 가지지 않는 모든 JAR는 자동 모듈이다.
+
+-	자동 모듈은 암묵적을 자신의 모든 패키지를 노출시킨다.
+
+-	추가 후 실행
+
+	```text
+	java --module-path \
+	./expenses.application/target/expenses.application-1.0.jar:\
+	./expenses.readers/target/expenses.reader-1.0.jar \
+	./expenses.readers/target/dependency/httpclient-4.5.3.jar \
+	     --module \
+	     expenses.application/com.example.expenses.application.ExpensesApplication
+	```
+
+##### 14.8 모듈 정의와 구문들
+
+-	모듈 정의 언어에서 사용할 수 있는 몇 가지 키워드를 간단하게 살펴보면서 무엇을 할 수 있는지 보여준다.
+
+-	requires
+
+	-	컴파일 타임과 런타임에 한 모듈이 다른 모듈에 의존함을 정의한다.
+
+		```text
+		// com.iteratrlearning.application 모듈은  com.iteratrlearning.ui 에 의존한다.
+		//  com.iteratrlearning.ui 에서 외부로 노출한 공개 형식을 com.iteratrlearning.application 에서 사용할 수 있다.
+		module com.iteratrlearning.application {
+		    requires com.iteratrlearning.ui;
+		}
+		```
+
+-	exports
+
+	-	지정한 패키지를 다른 모듈에서 이용할 수 있도록 공개 형식으로 만든다.
+	-	아무 패키지도 공개하지 않는 것이 기본 설정임.
+	-	exports는 패키지명을 인수로 받지만 requires는 모듈명은 인수로 받는다
+
+		```text
+		module com.iteratrlearning.application {
+		        requires com.iteratrlearning.ui;
+		        exports com.iteratrleanring.ui.panels;
+		        exports com.iteratrleanring.ui.widgets;
+		}
+		```
+
+-	requires transitive
+
+	-	전이성 선언
+	-	com.iteratrlearning.application 에서 com.iteratrlearning.core를 다시 선언할 필요 없음
+
+		```text
+		module com.iteratrlearning.ui {
+		    requires transitive com.iteratrlearning.core;
+
+
+		    export com.iteratrlearning.ui.panel;
+		    export com.iteratrlearning.ui.widget;
+		}
+
+
+		// com.iteratrlearning.application 은 com.iteratrlearning.core 에서 노출한 공개 형식에 접근할 수 있다.
+		module com.iteratrlearning.application{
+		    requires com.iteratrlearning.ui;
+		}
+		```
+
+-	exports to
+
+	-	사용자에게 공개할 기능을 제한함으로 가시성을 좀 더 정교하게 제어할 수 있다.
+
+		```text
+		// com.iteratrlearning.widgets 의 접근권한을 가진 사용자의 권한을 com.iteratrlearning.ui.widgetuser로 제한할 수 있다.
+		module com.iteratrlearning.ui {
+		    requires com.iteratrlearning.core;
+
+
+		    exports com.iteratrlearning.ui.panels;
+		    exports com.iteratrlearning.ui.widgets to com.iteratrlearning.ui.widgetusers;
+		}
+		```
+
+-	open 과 opens
+
+	-	모듈 선언에 open 한정자를 이용하면 모든 패키지를 다른 모듈에 반사적으로 접근을 허용할 수 있다.
+
+	-	자바 9 이전에는 리플렉션으로 객체의 비공개 상태를 확인할 수 있었다. (진전한 캡슐화는 존재하지 않았다.)
+
+		-	하이버네이트 같은 객체 관계 매핑 도구에서는 이런 기능을 이용해 상태를 직접 고치곤 한다.
+
+	-	자바 9에서는 기본적으로 리플렉션이 이런 기능을 허용하지 않는다.
+
+		-	그런 기능이 필요하면 open 구문을 명시적으로 사용해야 한다.
+
+	-	리플렉션 때문에 전체 모듈을 개방하지 않고도 opens 구문을 모듈 선언에 이용해 필요한 개별 패키지만 개방할 수 있다.
+
+		-	open에 to를 붙여서 반사적인 접근을 특정 모듈에만 허용할 수 있다.
+
+		```text
+		open module com.iteratrlearning.ui {
+		}
+		```
+
+-	uses 와 provides
+
+	-	자바 모듈 시스템은 provides 구문으로 서비스 제공자를 uses 구문으로 서비스 소비자를 지정할 수 있는 기능을 제공한다.
+	-	심화 내용은 The Java Module System 책 참고할 것
+
+> 자바 EE 갭라자라면 애플리케이션을 자바 9로 이전할 때 EE와 관련한 여러 패키지가 모듈화된 자바9 가상머신에서 기본적으로 로드되지 않는다는 사실을 기억해야 한다.
