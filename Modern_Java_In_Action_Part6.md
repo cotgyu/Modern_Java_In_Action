@@ -101,3 +101,255 @@
 	-	반복을 재귀로 바꾸면 더 간결하고, 부작용이 없는 알고리즘을 만들 수 있다.
 	-	재귀를 이용하면 좀 더 쉽게 읽고, 쓰고, 이해할 수 있는 예제를 만들 수 있다.
 	-	약간의 실행시간 차이보다는 프로그래머의 효율성이 더 중요할 때도 많다.
+
+#### Chap 19 : 함수형 프로그래밍 기법
+
+-	실무에서 적용할 수 있는 실용적 기법에 대해 배운다.
+	-	고차원 함수, 커링, 영구 자료구조, 게으른 리스트, 패턴 매칭, 참조 투명성을 이용한 캐싱, 콤비네이터 등
+
+##### 19.1 함수는 모든 곳에 존재한다.
+
+-	함수형 언어 프로그래머는 함수형 프로그래밍이라는 용어를 좀 더 폭넓게 사용한다.
+
+	-	함수를 마치 일반 값처럼 사용해서 인수로 전달하거나, 결과로 반환하거나, 자료구조에 저장할 수 있다.
+	-	일반값처럼 취급할 수 있는 함수를 일급함수 라고 한다.
+
+-	**자바 8이 이전 버전과 구별되는 특징 중 하나가 일급함수를 지원한다는 것임**
+
+	-	:: 연산자로 메서드 참조를 만들거나 람다표현식으로 직접 함수 값을 표현해서 메서드를 함수 값으로 사용할 수 있음.
+
+	```java
+	Function<String, Integer> strToInt = Integer::parseInt;
+	```
+
+-	고차원 함수
+
+	-	고차원함수 : 다음 중 하나 이상의 동작을 수행하는 함수
+
+		-	하나 이상의 함수를 인수로 받음
+		-	함수를 결과로 반환
+
+	-	자바 8에서는 함수를 인수로 전달할 수 있을 뿐만 아니라 결과로 반환하고, 지역 변수로 할당하거나, 구조체로 삽입할 수 있으므로 자바8의 함수도 고차원 함수라고 할 수 있음.
+
+	-	고차원 함수나 메서드를 구현할 때 어떤 인수가 전달도리지 알 수 없으므로 인수가 부작용을 포함할 가능성을 염두해 두어야 한다.
+
+		-	인수로 전달된 함수가 어떤 부작용을 포함하게 될지 정확하게 문서화하는 것이 좋다.
+
+-	커링
+
+	-	커링 : x와 y라는 두 인수를 받는 함수 f를 한 개의 인수를 받는 g라는 함수로 대체하는 기법
+
+	-	기존의 변환로직을 재활용한다.
+
+	```java
+	static DoubleUnaryOperator curriedConverter(double f, double b){
+	    return (double x) -> x * f + b;
+	}
+	...
+	DoubleUnaryOperator convertCtoF = curriedConverter(9.0/5, 32);
+	DoubleUnaryOperator convertUStoGBP = curriedConverter(0.6, 0);
+	...
+	double gbp = convertUStoGBP.applyAsDouble(1000);
+	```
+
+##### 19.2 영속 자료구조
+
+-	함수형 프로그램에서 사용하는 자료구조를 살펴본다.
+-	함수형 메서드에서는 전역 자료구조나 인수로 전달된 구조를 갱신할 수 없다.
+
+	-	자료구조를 바꾼다면 같은 메서드를 두번 호출했을 때 결과가 달라짐 -> 참조투명성 위배, 인수를 결과로 단순하게 매핑할 수 있는 능력이 상실됨.
+
+-	파괴적인 갱신과 함수형
+
+	-	자료구조를 갱신할 때 문제가 발생할 수 있다.
+
+		-	X 에서 Y로 가는 경로의 firstJourney 라는 변수가 있고, Y에서 Z로 가는 secondJourney 라는 변수가 있을 때 둘을 연결 시키는 link 메서드를 호출하면 firstJourney가 secondJourney를 포함하면서 파괴적인 갱신이 일어난다.
+			-	이때 link 메서드는 첫번째 자료구조를 변경하는 메서드임.
+			-	이러면 firstJourney에 의존하는 코드가 동작하지 않게 됨.
+
+	-	함수형에서는 위의 부작용을 수반하는 메서드를 제한하는 방식으로 문제를 해결한다.
+
+		-	계산 결과를 표현할 자료구조가 필요하면 기존의 자료구조를 갱신하지 않도록 새로운 자료구조를 만들어야 한다.
+
+		```java
+		static TrainJourney append(TrainJourney a, TrainJourney b){
+		    return a==null ? b : new TrainJourney(a.price, append(a.onward, b));;
+		}
+		```
+
+-	트리를 사용한 다른 예제
+
+	-	594p 에서는 트리 갱신에 대한 예제가 나와있다. 새로운 Tree를 통해 갱신하되 인수를 이용해서 가능한 한 많은 정보를 공유하는 예제임.
+
+##### 19.3 스트림과 게으른 평가
+
+-	스트림은 데이터 컬렉션을 처리하는 편리한 도구이다.
+
+	-	스트림은 단 한번만 소비할 수 있다는 제약이 있어서 스트림은 재귀적으로 정의할 수 없다.
+	-	이와 같은 제약 때문에 어떤 문제가 발생할 것인지 살펴본다.
+
+-	자기 정의 스트림
+
+	-	스트림은 최종연산을 하게 되면 소비를 하게 됨.
+	-	게으른 평가를 통해 재귀적으로 스트림을 실행할 수 있다.
+
+		-	스트림에 최종 연산을 적용해서 실제 계산을 해야 하는 상황에서만 실제 연산이 이루어 진다.
+		-	스트림에 여러 연산(filter, map, reduce 등)을 적용할 때 이와 같은 특성을 활용할 수 있다.
+		-	게으른 특성 때문에 각 연산별로 스트림을 탐색할 필요 없이 한 번에 여러 연산을 처리할 수 있다.
+
+		-	602p 게으른 리스트 예제
+
+-	자료구조의 10퍼센트 미만의 데이터만 활용하는 상황에서는 게으른 실행으로 인한 오버헤드가 더 커질 수 있다.
+
+	-	게으른 자료구조 때문에 효율성이 떨어진다면 전통적인 코드로 구현하자.
+
+##### 19.4 패턴 매칭
+
+-	일반적으로 함수형 프로그래밍을 구분하는 또 하나의 중요한 특징으로 패턴 매칭이 있다.
+
+-	자바에서는 if-then-else 나 switch를 사용할 수 있는데, 자료형이 복잡해지면서 이러한 작업을 처리하는 데 필요한 코드의 양도 증가했다.
+
+	-	패턴 매칭을 사용하면 이러한 불필요한 잡동사니를 줄일 수 있다.
+
+-	방문자 디자인 패턴
+
+	-	자바에서는 방문자 디자인 패턴으로 자료형을 언랩할 수 있다.
+	-	특정 데이터 형식을 '방문'하는 알고리즘을 캡슐화하는 클래스를 따로 만들 수 있다.
+		-	방문자 클래스는 지정된 데이터 형식의 인스턴스를 입력으로 받는다.
+		-	그리고 인스턴스의 모든 멤버에 접근한다.
+
+	```java
+	// SimplifyExprVisitor를 인수로 받는 accept를 BinOp에 추가한 다음에 BinOp 자신을 SimplifyExprVisitor로 전달한다.
+	class BinOp extends Expr{
+	    ...
+	    public Expr accept(SimplifyExprVisitor v){
+	        return v.visit(this);
+	    }
+	}
+
+
+	public class SimplifyExprVisitor {
+	    ...
+	    public Expr visit(BinOp e){
+	        if("+".equals(e.opname) && e.right instanceof Number && ...){
+	            return e.left;
+	        }
+	        return e;
+	    }
+	}
+	```
+
+-	자바로 패턴 매칭 흉내내기
+
+	-	스칼라의 패턴 매칭은 자바보다 뛰어나다. 자바8의 람다를 이용하면 비슷하게 구현가능하다.
+
+	```java
+	// 스칼라
+	def simplifyExpression(expr: Expr): Expr = expr match{
+	    case BinOp("+", e, Number(0)) => e // 0 더하기
+	    case BinOp("*", e, Number(1)) => e // 1 곱하기
+	    case BinOp("/". e, Number(1)) => e // 1로 나누기
+	    case _ => expr
+	}
+
+
+	Expression match { case Pattern => Expression ... }
+
+
+	// 자바
+	public static Expr simplify(Expr e){
+	    TriFunction<String, Expr, Expr, Expr> binopcase =
+	        (opname, left, right) -> {
+	            if("+".equals(opname)){
+	                if(left instanceof Number && ((Number) left).val == 0){
+	                    return right;
+	                }
+
+
+	                if(right instanceof Number && ((Number) right).val == 0) {
+	                    return left;
+	                }
+	            }
+
+
+	            if("*".equals(opname)){
+	                if(left instanceof Number && ((Number) left).val == 1){
+	                    return right;
+	                }
+	                if(right instanceof Number && ((Number) right).val == 1){
+	                    return left;
+	                }
+	            }
+	            return new BinOp(opname, left, right);
+	        };
+
+
+	        Function<Integer, Expr> numcase = val -> new Number(val);
+	        Supplier<Expr> defaultclas = () -> new Number(0);
+
+
+	        return patternMatchExpr(e, binopcase, numcase, defaultcase);
+	}
+	```
+
+##### 19.5 기타 정보
+
+-	함수형, 참조 투명성의 특성에 관련된 두 가지 세부 주제를 살펴본다.
+
+	-	효율성
+	-	같은 결과를 반환하는 것과 관련된 염려사항
+
+-	캐싱 또는 기억화
+
+	-	반복이 필요한 비싼 계산비용의 메서드가 있을 수 있다.
+	-	오버헤드를 피하기 위해서 기억화라는 기법을 활용하면 된다. (참조 투명성이 유지되는 상황이라면)
+
+		-	기억화 : 메서드에 래퍼로 캐시(HashMap 같은)를 추가하는 기법
+		-	다수의 호출자가 공유하는 자료구조를 갱신하는 기법으로 순수 함수형 해결방식은 아니지만 감싼 버전의 코드는 참조 투명성을 유지할 수 있다.
+
+			-	래퍼가 호출되면 인수, 결과 쌍이 캐시에 존재하는지 먼저 확인한다.
+			-	캐시에 값이 존재하면 캐시에 저장된 값을 즉시 반환함.
+			-	캐시에 존재하지 않으면 결과를 계산한 다음에 새로운 인수, 결과쌍을 캐시에 저장하고 결과를 반환한다.
+
+	```java
+	final Map<Range, Integer> numberOfNodes = new HashMap<>();
+	Integer computeNumberOfNodesUsingCache(Range range){
+	    Integer result = numberOfNodes.get(range);
+	    if(result != null){
+	        return result;
+	    }
+	    result = computeNumberOfNodes(range);
+	    numberOfNodes.put(range, result);
+	    return result;
+	}
+	```
+
+-	'같은 객체를 반환함'은 무엇을 의미하는가?
+
+	-	일반적으로 함수형 프로그래밍에서는 데이터가 변경되지 않으므로 같다는 의미는 ==(참조가 같음)이 아니라 구조적인 값이 같다는 것을 의미한다.
+
+-	콤비네이터
+
+	-	함수형 프로그래밍에서는 두 함수를 인수로 받아 다른 함수로 반환하는 등 함수를 조합하는 고차원 함수를 많이 사용하게 된다.
+	-	콤비네이터 : 함수를 조합하는 기능
+	-	자바8 API에 추가된 많은 기능은 콤비네이터의 영향을 받음.
+
+	```java
+	// 함수조합 개념을 보여주는 코드
+	static<A,B,C> Function<A,C> compose(Function<B,C> g, Function<A,B> f){
+	    return x -> g.apply(f.apply(x));
+	}
+	```
+
+##### 19.6 마치며
+
+-	일급 함수란 인수로 전달하거나, 결과를 반환하거나, 자료구조에 저장할 수 있는 함수
+-	고차원 함수란 한 개 이상의 함수를 인수로 받아서 다른 함수를 반환하는 함수.
+
+	-	자바에서는 comparing, andThen, compose 등의 고차원 함수 제공
+
+-	커링은 함수를 모듈화하고 코드를 재사용할 수 있도록 지원하는 기법
+
+-	영속 자료구조는 갱신될 때 기존 버전의 자신을 보존함.
+
+	-	결과적으로 자신을 복사하는 과정이 따로 필요하지 않음.
