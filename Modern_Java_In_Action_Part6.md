@@ -692,3 +692,84 @@
 -	여기선 좋은 제안임에도 불구하고 기존 성능과의 상호 작용이나 기타 문제 때문에 자바에 채택되지 못한 이유를 설명하고 있다.
 
 ---
+
+#### 부록 A 기타 언어 업데이트
+
+##### A.1 어노테이션
+
+-	자바8 의 어노테이션은 두 가지가 개선되었다.
+
+	-	어노테이션을 반복할 수 있다.
+	-	모든 형식에 어노테이션을 사용할 수 있다. (자바 8 이전에는 선언에만 어노테이션 사용가능)
+
+-	자바의 어노테이션은 부가 정보를 프로그램에 장식할 수 있는 기능임.
+
+	-	자바 8 이전에는 선언에만 어노테이션을 사용할 수 있었음
+	-	즉, 어노테이션은 문법적 메타데이터
+
+-	어노테이션 용도
+
+	-	Junit의 콘텍스트에서 어노테이션으로 설정 작업을 하는 메서드와 단위 메서드를 실행하는 메서드를 구분할 수 있음
+	-	문서화에 어노테이션 사용가능 (@Deprecated)
+	-	자바 컴파일러도 어노테이션을 사용해서 에러를 검출하고, 경로를 줄이고, 코드를 생성할 수 있다.
+	-	자바 EE 에서 엔터프라이즈 애플리케이션을 설정할 때 어노테이션을 많이 사용함
+
+-	어노테이션 반복
+
+	-	이전 자바에서는 선언에서 지정한 하나의 어노테이션만 허용했음
+
+		-	반복하고 싶을 땐 배열을 사용했음 ( @Authors( { @Author(name="Raoul"), @Author(name="Mario") } ) ) ---
+
+	-	코드가 복잡해지므로 자바8에서는 반복어노테이션과 관련한 제한을 해제함
+
+		-	어노테이션 반복은 기본으로 제공하는 기능이 아니므로 반복할 수 있는 어노테이션임을 명시적으로 지정해야함
+
+	-	반복할 수 있는 어노테이션 만들기
+
+		-	1. 어노테이션을 @Repeatable 로 표시
+		-	2. 컨테이너 어노테이션 제공
+
+		```java
+		@Repeatable(Author.class)
+		@interface Author{ String name(); }
+		@interface Author{ Author[] value [];}
+		...
+		@Author(name="Raoul") @Author(name="Mario")
+		class Book{ }
+		```
+
+-	형식 어노테이션
+
+	-	자바 8에서는 모든 형식에 어노테이션을 적용할 수 있다.
+
+		-	new 연산자, instanceof, 형식 캐스트, 제네릭 형식 인수, implements, throws 등에 가능
+		-	List<@NonNull Car> cars = new ArrayList<>();
+
+	-	형식 어노테이션은 프로그램을 분석할 때 유용함 (코드를 실행하면서 예상하지 못한 에러 발생 가능성을 줄일 수 있음)
+
+##### A.2 일반화된 대상 형식 추론
+
+-	자바8은 인수 추론 기능을 개선했다.
+
+```java
+// 자바 8 이전에도 콘텍스트 정보를 이용한 형식 추론은 지원했었음
+static<T> List<T> emptyList();
+
+// 메서드를 호출할 때 명시적으로 형식을 사용해서 형식 파라미터의 형식을 지정할 수 있음
+List<Car> cars = Collections.<Car>emptyList();
+
+// 제네릭 인수 추론
+List<Car> cars = Collections.emptyList();
+
+// 하지만 자바 8 이전까지는 콘텍스트에 의한 추론이 실행되어 아래 코드는 사용할 수 없었음
+static void cleanCar(List<Car> cars){
+
+}
+cleanCars(Collections.emptyList());
+
+// 자바8에서는 대상 형식이 메서드 인수에도 적용되므로 명시적인 제네릭 인수를 제공하지 않아도 됨
+// Collectors.<Car>toList 대신 Collectors.toList() 사용 가능
+List<Car> cleanCars = dirtyCars.stream().filter(Car::isClean).collect(Collectors.toList());
+```
+
+---
