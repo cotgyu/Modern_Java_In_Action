@@ -773,3 +773,122 @@ List<Car> cleanCars = dirtyCars.stream().filter(Car::isClean).collect(Collectors
 ```
 
 ---
+
+#### 부록 B 기타 라이브러리 업데이트
+
+##### B.1 컬렉션
+
+-	컬렉션 API의 가장 큰 업데이트는 스트림의 등장이다. 스트림 외에도 다양한 업데이트가 적용되었다.
+
+-	추가 메서드
+
+	-	자바 API 설계자는 많은 새로운 메서드를 컬렉션 인터페이스와 클래스에 추가했다(대부분 디폴트 메서드)
+
+	-	맵
+
+		-	getOrDefault : 키에 매핑되는 값이 있는지 여부를 확인, 없으면 기본 값 반환
+		-	computeIfAbsent : 캐싱패턴 활용 가능
+
+	-	컬렉션
+
+		-	removeIf : 프레디케이트와 일치하는 모든 요소를 컬렉션에서 제거 가능
+
+	-	리스트
+
+		-	removeAll : 리스트의 각 요소를 주어진 연산자를 리스트에 적용한 결과로 대체
+
+-	Collections 클래스
+
+	-	NavigableMap : 불변의, 동기화된, 검사된, 빈
+	-	NavigableSet : 불변의, 동기화된, 검사된, 빈
+	-	checkedQueue : 동적 형식 검사에 기반을 둔 Queue 뷰 반환
+
+-	Comparator
+
+	-	새로운 인스턴스 메서드
+
+		-	reversed : 현재 Comparator를 역순으로 반전시킨 Comparator 반환
+		-	thenComparing : 두 객체가 같을 때 다른 Comparator를 사용하는 Comparator 반환
+		-	thenComparingInt, thenComparingDouble, thenComparingLong : thenComparing과 비슷하지만 기본형 특화된 함수를 인수로 받음
+
+	-	새로운 정적 메서드
+
+		-	comparingInt, comparingDouble, comparingLong : comparing 과 비슷한 동작을 수행하지만, 기본형에 특화된 함수를 인수로 받음
+		-	naturalOrder : Comparable 객체에 자연 순서를 적용한 Comparable 객체를 반환
+		-	nullsFirst : null 객체를 null이 아닌 객체보다 작은 값으로 취급하는 Comparator를 반환한다.
+		-	nullsLast : null 객체를 null이 아닌 객체보다 큰 값으로 취급하는 Comparator를 반환
+		-	reverseOrder : naturalOrder().reversed()와 같음
+
+##### B.2 동시성
+
+-	자바 8에는 동시성과 관련한 기능도 많이 업데이트되었다.
+
+	-	병렬스트림(7장)
+	-	CompletableFuture(11장)
+	-	병렬연산을 지원하는 Arrays
+	-	아토믹 변수 관련 기능
+	-	ConcurrentHashMap 업데이트
+
+-	아토믹
+
+	-	java.util.concurrent.atomic 패키지는 AtomicInteger, AtomicLong 등 단일 변수에 아토믹 연산을 지원하는 숫자 클래스를 제공한다.
+
+	-	자바 API는 여러 스레드에서 읽기 동작보다 갱신 동작을 많이 수행하는 상황이라면 Atomic 클래스 대신 LongAdder, LongAccumulator, DoubleAdder, DoubleAccumulator 를 사용하라고 권고한다 (통계 작업 등)
+
+		-	이들 클래스는 동적으로 컬질 수 있도록 설계되었으며 스레드 간의 경쟁을 줄일 수 있다.
+
+-	ConcurrentHashMap
+
+	-	ConcurrentHashMap은 동시 실행 환경에 친화적인 새로운 HashMap이다.
+	-	내부 자료구조의 일부만 잠근 상태로 동시 덧셈이나 갱신 작업을 수행할 수 있는 기능을 제공한다. 따라서 기존의 동기화된 Hashtable에 비해 빠른 속도로 읽기 쓰기 연산을 수행한다.
+
+	-	스트림같은 연산
+
+		-	스트림을 연산시키는 세 종류의 연산을 지원한다.
+
+			-	forEach : 각 키/값 쌍에 주어진 동작을 실행한다.
+			-	reduce : 제공된 리듀싱 함수로 모든 키/값 쌍의 결과를 도출한다.
+			-	search : 함수가 null이 아닌 결과를 도출할 때까지 각 키/값 쌍에 함수를 적용한다.
+
+		-	이들 연산은 ConcurrentHashMap의 상태를 잠그지 않고 요소에 직접 연산을 수행한다.
+
+		-	또한 모든 연산에 병렬성 한계값을 지정해야 한다. (현재 맵의 크기가 한계값보다 작다고 추정되면 순차적으로 연산을 수행한다.)
+
+	-	카운팅
+
+		-	맵의 매핑 개수를 long으로 반환하는 mappingCount라는 새로운 메서드 제공
+		-	맵의 매핑 개수가 정수 범위를 초과할 수 있으므로 int를 반환하는 size 대신 mappingCount 사용할 것
+
+	-	집합뷰
+
+		-	ConcurrentHashMap을 집합 뷰로 반환하는 새로운 메서드 keySet을 제공한다. (맵을 바꾸면 집합에 결과가 반영되고, 집합을 바꾸면 맵에 영행을 미침)
+		-	newKeySet을 이용해 ConcurrentHashMap의 원소를 포함하는 새로운 집합을 만들 수도 있음
+
+##### B.3 Arrays
+
+-	네 개의 새로운 메서드를 살펴본다.
+
+	-	parallelSort : 자연순서나 객체 배열의 추가 Comparator를 사용해서 특정 배열을 병렬로 정렬하는 기능을 수행함
+
+	-	setAll : 지정된 배열의 모든 요소를 순차적으로 설정
+
+	-	parallelSetAll : 모든 요소를 병렬로 설정
+
+	-	parallelPrefix : 제공된 이항 연산자를 이용해서 배열의 각 요소를 병렬로 누적하는 동작을 수행
+
+##### B.4 Number와 Math
+
+-	자바 8 API는 Number와 Math 클래스에 새로운 메서드가 추가되었음 671p
+
+##### B.5 Files
+
+-	파일에서 스트림을 만들 수 있는 기능이 추가되었음.
+
+##### B.6 리플렉션
+
+-	바뀐 어노테이션 기법을 지원할 수 있도록 리플렉션 API도 업데이트되었음
+-	리플렉션 API에서 이름, 변경자 등 의 메서드 파라미터 정보를 사용할 수 있게 됨
+
+##### B.7 String
+
+-	구분 기호로 문자열을 연결할 수 있는 join이라는 새로운 정적 메서드가 추가됨
